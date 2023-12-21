@@ -55,10 +55,13 @@ func main() {
 	results[govtypes.OptionNoWithVeto] = sdk.ZeroDec()
 	totalVotingPower := sdk.ZeroDec()
 	for _, vote := range votes {
-		if val, ok := valsByAddr[vote.Voter]; ok {
+		// Check if it's a validator vote
+		voter := sdk.MustAccAddressFromBech32(vote.Voter)
+		valAddrStr := sdk.ValAddress(voter.Bytes()).String()
+		if val, ok := valsByAddr[valAddrStr]; ok {
 			// It's a validator vote
 			val.Vote = vote.Options
-			valsByAddr[vote.Voter] = val
+			valsByAddr[valAddrStr] = val
 		}
 
 		// Check voter delegations
@@ -84,8 +87,10 @@ func main() {
 		}
 	}
 	// iterate over the validators again to tally their voting power
+	nonvoter := 0
 	for _, val := range valsByAddr {
 		if len(val.Vote) == 0 {
+			nonvoter++
 			continue
 		}
 		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
@@ -97,6 +102,7 @@ func main() {
 		}
 		totalVotingPower = totalVotingPower.Add(votingPower)
 	}
+	fmt.Println("VALIDATOR DIDN'T VOTE", nonvoter)
 	tallyResults := govtypes.NewTallyResultFromMap(results)
 
 	fmt.Println("VOTING POWER", humanize.Comma(totalVotingPower.TruncateInt64()))
@@ -174,7 +180,6 @@ func parseValidatorsByAddr(path string) (map[string]govtypes.ValidatorGovInfo, e
 			sdk.ZeroDec(),
 			govtypes.WeightedVoteOptions{},
 		)
-
 	}
 	return valsByAddr, nil
 }
