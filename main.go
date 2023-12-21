@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dustin/go-humanize"
 	"github.com/gogo/protobuf/jsonpb"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
@@ -45,10 +47,63 @@ func main() {
 	}
 	fmt.Printf("%d delegations for %d delegators\n", numDeleg, len(delegsByAddr))
 
-	// Compute total voting power
-	// var vp uint64
-	// for _, v := range votes {
-	// }
+	// Tally votes
+	results := make(map[govtypes.VoteOption]sdk.Dec)
+	results[govtypes.OptionYes] = sdk.ZeroDec()
+	results[govtypes.OptionAbstain] = sdk.ZeroDec()
+	results[govtypes.OptionNo] = sdk.ZeroDec()
+	results[govtypes.OptionNoWithVeto] = sdk.ZeroDec()
+	totalVotingPower := sdk.ZeroDec()
+	for _, vote := range votes {
+		if val, ok := valsByAddr[vote.Voter]; ok {
+			// It's a validator vote
+			val.Vote = vote.Options
+			valsByAddr[vote.Voter] = val
+		}
+
+		// Check voter delegations
+		dels := delegsByAddr[vote.Voter]
+		for _, del := range dels {
+			val, ok := valsByAddr[del.ValidatorAddress]
+			if !ok {
+				// Validator isn't in active set or jailed, ignore
+				continue
+			}
+			// Reduce validator voting power with delegation that has voted
+			val.DelegatorDeductions = val.DelegatorDeductions.Add(del.Shares)
+			valsByAddr[del.ValidatorAddress] = val
+
+			// delegation shares * bonded / total shares
+			votingPower := del.Shares.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+
+			for _, option := range vote.Options {
+				subPower := votingPower.Mul(option.Weight)
+				results[option.Option] = results[option.Option].Add(subPower)
+			}
+			totalVotingPower = totalVotingPower.Add(votingPower)
+		}
+	}
+	// iterate over the validators again to tally their voting power
+	for _, val := range valsByAddr {
+		if len(val.Vote) == 0 {
+			continue
+		}
+		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
+		votingPower := sharesAfterDeductions.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+
+		for _, option := range val.Vote {
+			subPower := votingPower.Mul(option.Weight)
+			results[option.Option] = results[option.Option].Add(subPower)
+		}
+		totalVotingPower = totalVotingPower.Add(votingPower)
+	}
+	tallyResults := govtypes.NewTallyResultFromMap(results)
+
+	fmt.Println("VOTING POWER", humanize.Comma(totalVotingPower.TruncateInt64()))
+	fmt.Println("YES", humanize.Comma(tallyResults.Yes.Int64()))
+	fmt.Println("NO", humanize.Comma(tallyResults.No.Int64()))
+	fmt.Println("NWV", humanize.Comma(tallyResults.NoWithVeto.Int64()))
+	fmt.Println("ABS", humanize.Comma(tallyResults.Abstain.Int64()))
 }
 
 func parseVotes(path string) (govtypes.Votes, error) {
@@ -93,7 +148,7 @@ func parseDelegationsByAddr(path string) (map[string][]stakingtypes.Delegation, 
 	return delegsByAddr, nil
 }
 
-func parseValidatorsByAddr(path string) (map[string]stakingtypes.Validator, error) {
+func parseValidatorsByAddr(path string) (map[string]govtypes.ValidatorGovInfo, error) {
 	f, err := os.Open(filepath.Join(path, "active_validators.json"))
 	if err != nil {
 		return nil, err
@@ -105,14 +160,21 @@ func parseValidatorsByAddr(path string) (map[string]stakingtypes.Validator, erro
 	if err != nil {
 		return nil, err
 	}
-	valsByAddr := make(map[string]stakingtypes.Validator)
+	valsByAddr := make(map[string]govtypes.ValidatorGovInfo)
 	for dec.More() {
 		var val stakingtypes.Validator
 		err := unmarshaler.UnmarshalNext(dec, &val)
 		if err != nil {
 			return nil, err
 		}
-		valsByAddr[val.OperatorAddress] = val
+		valsByAddr[val.OperatorAddress] = govtypes.NewValidatorGovInfo(
+			val.GetOperator(),
+			val.GetBondedTokens(),
+			val.GetDelegatorShares(),
+			sdk.ZeroDec(),
+			govtypes.WeightedVoteOptions{},
+		)
+
 	}
 	return valsByAddr, nil
 }
