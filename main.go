@@ -57,6 +57,7 @@ func parseVotes(path string) (govtypes.Votes, error) {
 		return nil, err
 	}
 	defer f.Close()
+	// XXX workaround to unmarshal votes because proto doesn't support top-level array
 	dec := json.NewDecoder(f)
 	_, err = dec.Token()
 	if err != nil {
@@ -97,6 +98,7 @@ func parseValidatorsByAddr(path string) (map[string]stakingtypes.Validator, erro
 	if err != nil {
 		return nil, err
 	}
+	// XXX workaround to unmarshal validators because proto doesn't support top-level array
 	defer f.Close()
 	dec := json.NewDecoder(f)
 	_, err = dec.Token()
