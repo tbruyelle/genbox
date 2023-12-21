@@ -6,13 +6,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/dustin/go-humanize"
+	h "github.com/dustin/go-humanize"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/olekukonko/tablewriter"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -21,6 +23,9 @@ var unmarshaler jsonpb.Unmarshaler
 func init() {
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
+	govtypes.RegisterInterfaces(registry)
+	sdk.RegisterInterfaces(registry)
+	proposaltypes.RegisterInterfaces(registry)
 	unmarshaler = jsonpb.Unmarshaler{AnyResolver: registry}
 }
 
@@ -31,7 +36,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%d votes\n", len(votes))
+	fmt.Printf("%s votes\n", h.Comma(int64(len(votes))))
 	valsByAddr, err := parseValidatorsByAddr(datapath)
 	if err != nil {
 		panic(err)
@@ -45,7 +50,8 @@ func main() {
 	for _, d := range delegsByAddr {
 		numDeleg += len(d)
 	}
-	fmt.Printf("%d delegations for %d delegators\n", numDeleg, len(delegsByAddr))
+	fmt.Printf("%s delegations for %s delegators\n",
+		h.Comma(int64(numDeleg)), h.Comma(int64(len(delegsByAddr))))
 
 	// Tally votes
 	results := make(map[govtypes.VoteOption]sdk.Dec)
@@ -102,14 +108,37 @@ func main() {
 		}
 		totalVotingPower = totalVotingPower.Add(votingPower)
 	}
-	fmt.Println("VALIDATOR DIDN'T VOTE", nonvoter)
-	tallyResults := govtypes.NewTallyResultFromMap(results)
+	fmt.Printf("%d validators didn't vote\n", nonvoter)
+	tallyResult := govtypes.NewTallyResultFromMap(results)
 
-	fmt.Println("VOTING POWER", humanize.Comma(totalVotingPower.TruncateInt64()))
-	fmt.Println("YES", humanize.Comma(tallyResults.Yes.Int64()))
-	fmt.Println("NO", humanize.Comma(tallyResults.No.Int64()))
-	fmt.Println("NWV", humanize.Comma(tallyResults.NoWithVeto.Int64()))
-	fmt.Println("ABS", humanize.Comma(tallyResults.Abstain.Int64()))
+	// Get the prop from snashot to compare tally result
+	prop := parseProp(datapath)
+
+	fmt.Println("--- TALLY RESULT ---")
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"", "Yes", "No", "NoWithVeto", "Abstain", "Total"})
+	appendTable := func(source string, t govtypes.TallyResult) {
+		total := t.Yes.Add(t.No).Add(t.Abstain).Add(t.NoWithVeto)
+		table.Append([]string{
+			source,
+			h.Comma(t.Yes.Int64()),
+			h.Comma(t.No.Int64()),
+			h.Comma(t.NoWithVeto.Int64()),
+			h.Comma(t.Abstain.Int64()),
+			h.Comma(total.Int64()),
+		})
+	}
+	appendTable("computed", tallyResult)
+	appendTable("from prop", prop.FinalTallyResult)
+	diff := govtypes.NewTallyResult(
+		tallyResult.Yes.Sub(prop.FinalTallyResult.Yes),
+		tallyResult.Abstain.Sub(prop.FinalTallyResult.Abstain),
+		tallyResult.No.Sub(prop.FinalTallyResult.No),
+		tallyResult.NoWithVeto.Sub(prop.FinalTallyResult.NoWithVeto),
+	)
+	appendTable("diff", diff)
+
+	table.Render() // Send output
 }
 
 func parseVotes(path string) (govtypes.Votes, error) {
@@ -159,8 +188,8 @@ func parseValidatorsByAddr(path string) (map[string]govtypes.ValidatorGovInfo, e
 	if err != nil {
 		return nil, err
 	}
-	// XXX workaround to unmarshal validators because proto doesn't support top-level array
 	defer f.Close()
+	// XXX workaround to unmarshal validators because proto doesn't support top-level array
 	dec := json.NewDecoder(f)
 	_, err = dec.Token()
 	if err != nil {
@@ -182,4 +211,18 @@ func parseValidatorsByAddr(path string) (map[string]govtypes.ValidatorGovInfo, e
 		)
 	}
 	return valsByAddr, nil
+}
+
+func parseProp(path string) govtypes.Proposal {
+	f, err := os.Open(filepath.Join(path, "prop.json"))
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	var prop govtypes.Proposal
+	err = unmarshaler.Unmarshal(f, &prop)
+	if err != nil {
+		panic(err)
+	}
+	return prop
 }
