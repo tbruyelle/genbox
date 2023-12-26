@@ -110,6 +110,9 @@ func main() {
 	}
 	fmt.Println("Computed total voting power", h.Comma(totalVotingPower.TruncateInt64()))
 	fmt.Printf("%d validators didn't vote\n", nonvoter)
+	yesPercent := results[govtypes.OptionYes].
+		Quo(totalVotingPower.Sub(results[govtypes.OptionAbstain]))
+	fmt.Println("Yes percent:", yesPercent)
 	tallyResult := govtypes.NewTallyResultFromMap(results)
 
 	// Get the prop from snashot to compare tally result
@@ -121,13 +124,9 @@ func main() {
 	M := sdk.NewInt(1_000_000)
 	appendTable := func(source string, t govtypes.TallyResult) {
 		total := t.Yes.Add(t.No).Add(t.Abstain).Add(t.NoWithVeto)
-		yesPercent := t.Yes.ToDec().Quo(total.Sub(t.Abstain).ToDec())
-		_ = yesPercent // computed for debugging purpose
 		table.Append([]string{
 			source,
 			h.Comma(t.Yes.Quo(M).Int64()),
-			// Show yes with percent:
-			// fmt.Sprintf("%s (%.2f)", h.Comma(t.Yes.Quo(M).Int64()), yesPercent.MustFloat64()),
 			h.Comma(t.No.Quo(M).Int64()),
 			h.Comma(t.NoWithVeto.Quo(M).Int64()),
 			h.Comma(t.Abstain.Quo(M).Int64()),
