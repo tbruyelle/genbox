@@ -118,17 +118,18 @@ func main() {
 	fmt.Println("--- TALLY RESULT ---")
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"", "Yes", "No", "NoWithVeto", "Abstain", "Total"})
+	M := sdk.NewInt(1_000_000)
 	appendTable := func(source string, t govtypes.TallyResult) {
 		total := t.Yes.Add(t.No).Add(t.Abstain).Add(t.NoWithVeto)
 		yesPercent := t.Yes.ToDec().Quo(total.Sub(t.Abstain).ToDec())
 		_ = yesPercent // computed for debugging purpose
 		table.Append([]string{
 			source,
-			h.Comma(t.Yes.Int64()),
-			h.Comma(t.No.Int64()),
-			h.Comma(t.NoWithVeto.Int64()),
-			h.Comma(t.Abstain.Int64()),
-			h.Comma(total.Int64()),
+			h.Comma(t.Yes.Quo(M).Int64()),
+			h.Comma(t.No.Quo(M).Int64()),
+			h.Comma(t.NoWithVeto.Quo(M).Int64()),
+			h.Comma(t.Abstain.Quo(M).Int64()),
+			h.Comma(total.Quo(M).Int64()),
 		})
 	}
 	appendTable("computed", tallyResult)
