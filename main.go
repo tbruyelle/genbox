@@ -79,11 +79,11 @@ func main() {
 				continue
 			}
 			// Reduce validator voting power with delegation that has voted
-			val.DelegatorDeductions = val.DelegatorDeductions.Add(del.Shares)
+			val.DelegatorDeductions = val.DelegatorDeductions.Add(del.GetShares())
 			valsByAddr[del.ValidatorAddress] = val
 
 			// delegation shares * bonded / total shares
-			votingPower := del.Shares.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+			votingPower := del.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
 
 			for _, option := range vote.Options {
 				subPower := votingPower.Mul(option.Weight)
@@ -108,6 +108,7 @@ func main() {
 		}
 		totalVotingPower = totalVotingPower.Add(votingPower)
 	}
+	fmt.Println("Computed total voting power", h.Comma(totalVotingPower.TruncateInt64()))
 	fmt.Printf("%d validators didn't vote\n", nonvoter)
 	tallyResult := govtypes.NewTallyResultFromMap(results)
 
@@ -119,6 +120,8 @@ func main() {
 	table.SetHeader([]string{"", "Yes", "No", "NoWithVeto", "Abstain", "Total"})
 	appendTable := func(source string, t govtypes.TallyResult) {
 		total := t.Yes.Add(t.No).Add(t.Abstain).Add(t.NoWithVeto)
+		yesPercent := t.Yes.ToDec().Quo(total.Sub(t.Abstain).ToDec())
+		_ = yesPercent // computed for debugging purpose
 		table.Append([]string{
 			source,
 			h.Comma(t.Yes.Int64()),
