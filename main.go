@@ -126,6 +126,8 @@ func main() {
 		table.Append([]string{
 			source,
 			h.Comma(t.Yes.Quo(M).Int64()),
+			// Show yes with percent:
+			// fmt.Sprintf("%s (%.2f)", h.Comma(t.Yes.Quo(M).Int64()), yesPercent.MustFloat64()),
 			h.Comma(t.No.Quo(M).Int64()),
 			h.Comma(t.NoWithVeto.Quo(M).Int64()),
 			h.Comma(t.Abstain.Quo(M).Int64()),
