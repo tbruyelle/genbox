@@ -13,6 +13,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -53,6 +54,36 @@ func main() {
 	fmt.Printf("%s delegations for %s delegators\n",
 		h.Comma(int64(numDeleg)), h.Comma(int64(len(delegsByAddr))))
 
+	// Build bank genesis
+	genesis := banktypes.GenesisState{
+		DenomMetadata: []banktypes.Metadata{
+			{
+				Display:     "atone",
+				Symbol:      "ATONE",
+				Base:        "uatone",
+				Name:        "Atom One Atone",
+				Description: "The native token of Atom One Hub",
+				DenomUnits: []*banktypes.DenomUnit{
+					{
+						Aliases:  []string{"microatone"},
+						Denom:    "uatone",
+						Exponent: 0,
+					},
+					{
+						Aliases:  []string{"milliatone"},
+						Denom:    "matone",
+						Exponent: 3,
+					},
+					{
+						Aliases:  []string{"atone"},
+						Denom:    "atone",
+						Exponent: 6,
+					},
+				},
+			},
+		},
+	}
+
 	// Tally votes
 	results := make(map[govtypes.VoteOption]sdk.Dec)
 	results[govtypes.OptionYes] = sdk.ZeroDec()
@@ -72,6 +103,8 @@ func main() {
 
 		// Check voter delegations
 		dels := delegsByAddr[vote.Voter]
+		// Initialize atone voter balance
+		atones := sdk.NewDec(0)
 		for _, del := range dels {
 			val, ok := valsByAddr[del.ValidatorAddress]
 			if !ok {
@@ -84,13 +117,21 @@ func main() {
 
 			// delegation shares * bonded / total shares
 			votingPower := del.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
-
+			// Iterate over vote options
 			for _, option := range vote.Options {
 				subPower := votingPower.Mul(option.Weight)
 				results[option.Option] = results[option.Option].Add(subPower)
+				// TODO slash according to vote
+				atones = atones.Add(subPower)
 			}
 			totalVotingPower = totalVotingPower.Add(votingPower)
+
 		}
+		// Append voter balance to bank genesis
+		genesis.Balances = append(genesis.Balances, banktypes.Balance{
+			Address: vote.Voter,
+			Coins:   sdk.NewCoins(sdk.NewCoin("uatone", atones.TruncateInt())),
+		})
 	}
 	// iterate over the validators again to tally their voting power
 	nonvoter := 0
@@ -142,8 +183,13 @@ func main() {
 		tallyResult.NoWithVeto.Sub(prop.FinalTallyResult.NoWithVeto),
 	)
 	appendTable("diff", diff)
-
 	table.Render() // Send output
+
+	// Write bank genesis
+	err = writeBankGenesis(genesis)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func parseVotes(path string) (govtypes.Votes, error) {
@@ -230,4 +276,12 @@ func parseProp(path string) govtypes.Proposal {
 		panic(err)
 	}
 	return prop
+}
+
+func writeBankGenesis(g banktypes.GenesisState) error {
+	bz, err := json.MarshalIndent(g, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile("bank.genesis", bz, 0o666)
 }
