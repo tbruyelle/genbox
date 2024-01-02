@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	h "github.com/dustin/go-humanize"
 	"github.com/gogo/protobuf/jsonpb"
@@ -51,32 +52,33 @@ func main() {
 	for _, d := range delegsByAddr {
 		numDeleg += len(d)
 	}
-	fmt.Printf("%s delegations for %s delegators\n",
-		h.Comma(int64(numDeleg)), h.Comma(int64(len(delegsByAddr))))
+	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
+		h.Comma(int64(len(delegsByAddr))))
 
 	// Build bank genesis
+	const ticker = "govno"
 	genesis := banktypes.GenesisState{
 		DenomMetadata: []banktypes.Metadata{
 			{
-				Display:     "atone",
-				Symbol:      "ATONE",
-				Base:        "uatone",
-				Name:        "Atom One Atone",
-				Description: "The native token of Atom One Hub",
+				Display:     ticker,
+				Symbol:      strings.ToUpper(ticker),
+				Base:        "u" + ticker,
+				Name:        "Atom One Govno",
+				Description: "The governance token of Atom One Hub",
 				DenomUnits: []*banktypes.DenomUnit{
 					{
-						Aliases:  []string{"microatone"},
-						Denom:    "uatone",
+						Aliases:  []string{"micro" + ticker},
+						Denom:    "u" + ticker,
 						Exponent: 0,
 					},
 					{
-						Aliases:  []string{"milliatone"},
-						Denom:    "matone",
+						Aliases:  []string{"milli" + ticker},
+						Denom:    "m" + ticker,
 						Exponent: 3,
 					},
 					{
-						Aliases:  []string{"atone"},
-						Denom:    "atone",
+						Aliases:  []string{ticker},
+						Denom:    ticker,
 						Exponent: 6,
 					},
 				},
@@ -103,8 +105,8 @@ func main() {
 
 		// Check voter delegations
 		dels := delegsByAddr[vote.Voter]
-		// Initialize atone voter balance
-		atones := sdk.NewDec(0)
+		// Initialize voter balance
+		balance := sdk.NewDec(0)
 		for _, del := range dels {
 			val, ok := valsByAddr[del.ValidatorAddress]
 			if !ok {
@@ -122,15 +124,14 @@ func main() {
 				subPower := votingPower.Mul(option.Weight)
 				results[option.Option] = results[option.Option].Add(subPower)
 				// TODO slash according to vote
-				atones = atones.Add(subPower)
+				balance = balance.Add(subPower)
 			}
 			totalVotingPower = totalVotingPower.Add(votingPower)
-
 		}
 		// Append voter balance to bank genesis
 		genesis.Balances = append(genesis.Balances, banktypes.Balance{
 			Address: vote.Voter,
-			Coins:   sdk.NewCoins(sdk.NewCoin("uatone", atones.TruncateInt())),
+			Coins:   sdk.NewCoins(sdk.NewCoin("u"+ticker, balance.TruncateInt())),
 		})
 	}
 	// iterate over the validators again to tally their voting power
