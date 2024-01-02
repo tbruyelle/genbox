@@ -22,7 +22,10 @@ import (
 
 const ticker = "govno"
 
-var unmarshaler jsonpb.Unmarshaler
+var (
+	unmarshaler jsonpb.Unmarshaler
+	datapath    string
+)
 
 func init() {
 	registry := codectypes.NewInterfaceRegistry()
@@ -35,7 +38,7 @@ func init() {
 
 func main() {
 	// Read data from files
-	datapath := os.Args[1]
+	datapath = os.Args[1]
 	votes, err := parseVotes(datapath)
 	if err != nil {
 		panic(err)
@@ -134,41 +137,8 @@ func main() {
 		}
 		totalVotingPower = totalVotingPower.Add(votingPower)
 	}
-	fmt.Println("Computed total voting power", h.Comma(totalVotingPower.TruncateInt64()))
 	fmt.Printf("%d validators didn't vote\n", nonvoter)
-	yesPercent := results[govtypes.OptionYes].
-		Quo(totalVotingPower.Sub(results[govtypes.OptionAbstain]))
-	fmt.Println("Yes percent:", yesPercent)
-	tallyResult := govtypes.NewTallyResultFromMap(results)
-
-	// Get the prop from snashot to compare tally result
-	prop := parseProp(datapath)
-
-	fmt.Println("--- TALLY RESULT ---")
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"", "Yes", "No", "NoWithVeto", "Abstain", "Total"})
-	M := sdk.NewInt(1_000_000)
-	appendTable := func(source string, t govtypes.TallyResult) {
-		total := t.Yes.Add(t.No).Add(t.Abstain).Add(t.NoWithVeto)
-		table.Append([]string{
-			source,
-			h.Comma(t.Yes.Quo(M).Int64()),
-			h.Comma(t.No.Quo(M).Int64()),
-			h.Comma(t.NoWithVeto.Quo(M).Int64()),
-			h.Comma(t.Abstain.Quo(M).Int64()),
-			h.Comma(total.Quo(M).Int64()),
-		})
-	}
-	appendTable("computed", tallyResult)
-	appendTable("from prop", prop.FinalTallyResult)
-	diff := govtypes.NewTallyResult(
-		tallyResult.Yes.Sub(prop.FinalTallyResult.Yes),
-		tallyResult.Abstain.Sub(prop.FinalTallyResult.Abstain),
-		tallyResult.No.Sub(prop.FinalTallyResult.No),
-		tallyResult.NoWithVeto.Sub(prop.FinalTallyResult.NoWithVeto),
-	)
-	appendTable("diff", diff)
-	table.Render() // Send output
+	printTallyResults(results, totalVotingPower)
 
 	// Write bank genesis
 	err = writeBankGenesis(balances)
@@ -261,6 +231,43 @@ func parseProp(path string) govtypes.Proposal {
 		panic(err)
 	}
 	return prop
+}
+
+func printTallyResults(results map[govtypes.VoteOption]sdk.Dec, totalVotingPower sdk.Dec) {
+	fmt.Println("Computed total voting power", h.Comma(totalVotingPower.TruncateInt64()))
+	yesPercent := results[govtypes.OptionYes].
+		Quo(totalVotingPower.Sub(results[govtypes.OptionAbstain]))
+	fmt.Println("Yes percent:", yesPercent)
+	tallyResult := govtypes.NewTallyResultFromMap(results)
+
+	// Get the prop from snashot to compare tally result
+	prop := parseProp(datapath)
+
+	fmt.Println("--- TALLY RESULT ---")
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"", "Yes", "No", "NoWithVeto", "Abstain", "Total"})
+	M := sdk.NewInt(1_000_000)
+	appendTable := func(source string, t govtypes.TallyResult) {
+		total := t.Yes.Add(t.No).Add(t.Abstain).Add(t.NoWithVeto)
+		table.Append([]string{
+			source,
+			h.Comma(t.Yes.Quo(M).Int64()),
+			h.Comma(t.No.Quo(M).Int64()),
+			h.Comma(t.NoWithVeto.Quo(M).Int64()),
+			h.Comma(t.Abstain.Quo(M).Int64()),
+			h.Comma(total.Quo(M).Int64()),
+		})
+	}
+	appendTable("computed", tallyResult)
+	appendTable("from prop", prop.FinalTallyResult)
+	diff := govtypes.NewTallyResult(
+		tallyResult.Yes.Sub(prop.FinalTallyResult.Yes),
+		tallyResult.Abstain.Sub(prop.FinalTallyResult.Abstain),
+		tallyResult.No.Sub(prop.FinalTallyResult.No),
+		tallyResult.NoWithVeto.Sub(prop.FinalTallyResult.NoWithVeto),
+	)
+	appendTable("diff", diff)
+	table.Render()
 }
 
 func writeBankGenesis(balances []banktypes.Balance) error {
