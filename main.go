@@ -20,6 +20,8 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
+const ticker = "govno"
+
 var unmarshaler jsonpb.Unmarshaler
 
 func init() {
@@ -55,36 +57,18 @@ func main() {
 	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
 		h.Comma(int64(len(delegsByAddr))))
 
-	// Build bank genesis
-	const ticker = "govno"
-	genesis := banktypes.GenesisState{
-		DenomMetadata: []banktypes.Metadata{
-			{
-				Display:     ticker,
-				Symbol:      strings.ToUpper(ticker),
-				Base:        "u" + ticker,
-				Name:        "Atom One Govno",
-				Description: "The governance token of Atom One Hub",
-				DenomUnits: []*banktypes.DenomUnit{
-					{
-						Aliases:  []string{"micro" + ticker},
-						Denom:    "u" + ticker,
-						Exponent: 0,
-					},
-					{
-						Aliases:  []string{"milli" + ticker},
-						Denom:    "m" + ticker,
-						Exponent: 3,
-					},
-					{
-						Aliases:  []string{ticker},
-						Denom:    ticker,
-						Exponent: 6,
-					},
-				},
-			},
-		},
-	}
+	var (
+		// balances will receive the new token distribution
+		balances []banktypes.Balance
+		// balanceFactors maps vote option and airdrop/slash functions
+		balanceFactors = map[govtypes.VoteOption]func(sdk.Dec) sdk.Dec{
+			// XXX these are basic raw examples of airdrop/slash functions
+			govtypes.OptionYes:        func(d sdk.Dec) sdk.Dec { return sdk.ZeroDec() },
+			govtypes.OptionAbstain:    func(d sdk.Dec) sdk.Dec { return d.QuoInt64(2) },
+			govtypes.OptionNo:         func(d sdk.Dec) sdk.Dec { return d },
+			govtypes.OptionNoWithVeto: func(d sdk.Dec) sdk.Dec { return d.MulInt64(2) },
+		}
+	)
 
 	// Tally votes
 	results := make(map[govtypes.VoteOption]sdk.Dec)
@@ -123,13 +107,13 @@ func main() {
 			for _, option := range vote.Options {
 				subPower := votingPower.Mul(option.Weight)
 				results[option.Option] = results[option.Option].Add(subPower)
-				// TODO slash according to vote
-				balance = balance.Add(subPower)
+				// update balance according to vote
+				balance = balance.Add(balanceFactors[option.Option](subPower))
 			}
 			totalVotingPower = totalVotingPower.Add(votingPower)
 		}
 		// Append voter balance to bank genesis
-		genesis.Balances = append(genesis.Balances, banktypes.Balance{
+		balances = append(balances, banktypes.Balance{
 			Address: vote.Voter,
 			Coins:   sdk.NewCoins(sdk.NewCoin("u"+ticker, balance.TruncateInt())),
 		})
@@ -187,7 +171,7 @@ func main() {
 	table.Render() // Send output
 
 	// Write bank genesis
-	err = writeBankGenesis(genesis)
+	err = writeBankGenesis(balances)
 	if err != nil {
 		panic(err)
 	}
@@ -279,7 +263,36 @@ func parseProp(path string) govtypes.Proposal {
 	return prop
 }
 
-func writeBankGenesis(g banktypes.GenesisState) error {
+func writeBankGenesis(balances []banktypes.Balance) error {
+	g := banktypes.GenesisState{
+		DenomMetadata: []banktypes.Metadata{
+			{
+				Display:     ticker,
+				Symbol:      strings.ToUpper(ticker),
+				Base:        "u" + ticker,
+				Name:        "Atom One Govno",
+				Description: "The governance token of Atom One Hub",
+				DenomUnits: []*banktypes.DenomUnit{
+					{
+						Aliases:  []string{"micro" + ticker},
+						Denom:    "u" + ticker,
+						Exponent: 0,
+					},
+					{
+						Aliases:  []string{"milli" + ticker},
+						Denom:    "m" + ticker,
+						Exponent: 3,
+					},
+					{
+						Aliases:  []string{ticker},
+						Denom:    ticker,
+						Exponent: 6,
+					},
+				},
+			},
+		},
+		Balances: balances,
+	}
 	bz, err := json.MarshalIndent(g, "", "  ")
 	if err != nil {
 		return err
