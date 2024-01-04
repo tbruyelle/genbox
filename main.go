@@ -22,10 +22,7 @@ import (
 
 const ticker = "govno"
 
-var (
-	unmarshaler jsonpb.Unmarshaler
-	datapath    string
-)
+var unmarshaler jsonpb.Unmarshaler
 
 func init() {
 	registry := codectypes.NewInterfaceRegistry()
@@ -38,7 +35,7 @@ func init() {
 
 func main() {
 	// Read data from files
-	datapath = os.Args[1]
+	datapath := os.Args[1]
 	votes, err := parseVotes(datapath)
 	if err != nil {
 		panic(err)
@@ -60,6 +57,11 @@ func main() {
 	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
 		h.Comma(int64(len(delegsByAddr))))
 
+	// Tally from snapshot data
+	results, totalVotingPower := tally(votes, valsByAddr, delegsByAddr)
+	// Optionnaly print and compare tally with prop data
+	printTallyResults(results, totalVotingPower, parseProp(datapath))
+
 	var (
 		// balances will receive the new token distribution
 		balances []banktypes.Balance
@@ -72,73 +74,10 @@ func main() {
 			govtypes.OptionNoWithVeto: func(d sdk.Dec) sdk.Dec { return d.MulInt64(2) },
 		}
 	)
-
-	// Tally votes
-	results := make(map[govtypes.VoteOption]sdk.Dec)
-	results[govtypes.OptionYes] = sdk.ZeroDec()
-	results[govtypes.OptionAbstain] = sdk.ZeroDec()
-	results[govtypes.OptionNo] = sdk.ZeroDec()
-	results[govtypes.OptionNoWithVeto] = sdk.ZeroDec()
-	totalVotingPower := sdk.ZeroDec()
-	for _, vote := range votes {
-		// Check if it's a validator vote
-		voter := sdk.MustAccAddressFromBech32(vote.Voter)
-		valAddrStr := sdk.ValAddress(voter.Bytes()).String()
-		if val, ok := valsByAddr[valAddrStr]; ok {
-			// It's a validator vote
-			val.Vote = vote.Options
-			valsByAddr[valAddrStr] = val
-		}
-
-		// Check voter delegations
-		dels := delegsByAddr[vote.Voter]
-		// Initialize voter balance
-		balance := sdk.NewDec(0)
-		for _, del := range dels {
-			val, ok := valsByAddr[del.ValidatorAddress]
-			if !ok {
-				// Validator isn't in active set or jailed, ignore
-				continue
-			}
-			// Reduce validator voting power with delegation that has voted
-			val.DelegatorDeductions = val.DelegatorDeductions.Add(del.GetShares())
-			valsByAddr[del.ValidatorAddress] = val
-
-			// delegation shares * bonded / total shares
-			votingPower := del.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
-			// Iterate over vote options
-			for _, option := range vote.Options {
-				subPower := votingPower.Mul(option.Weight)
-				results[option.Option] = results[option.Option].Add(subPower)
-				// update balance according to vote
-				balance = balance.Add(balanceFactors[option.Option](subPower))
-			}
-			totalVotingPower = totalVotingPower.Add(votingPower)
-		}
-		// Append voter balance to bank genesis
-		balances = append(balances, banktypes.Balance{
-			Address: vote.Voter,
-			Coins:   sdk.NewCoins(sdk.NewCoin("u"+ticker, balance.TruncateInt())),
-		})
-	}
-	// iterate over the validators again to tally their voting power
-	nonvoter := 0
-	for _, val := range valsByAddr {
-		if len(val.Vote) == 0 {
-			nonvoter++
-			continue
-		}
-		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
-		votingPower := sharesAfterDeductions.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
-
-		for _, option := range val.Vote {
-			subPower := votingPower.Mul(option.Weight)
-			results[option.Option] = results[option.Option].Add(subPower)
-		}
-		totalVotingPower = totalVotingPower.Add(votingPower)
-	}
-	fmt.Printf("%d validators didn't vote\n", nonvoter)
-	printTallyResults(results, totalVotingPower)
+	_ = balanceFactors
+	// TODO build balances:
+	// Compute votesByAddr map, iterate over delegeations, if no vote found,
+	// use validator vote to compute balance
 
 	// Write bank genesis
 	err = writeBankGenesis(balances)
@@ -233,15 +172,83 @@ func parseProp(path string) govtypes.Proposal {
 	return prop
 }
 
-func printTallyResults(results map[govtypes.VoteOption]sdk.Dec, totalVotingPower sdk.Dec) {
+func tally(
+	votes []govtypes.Vote, valsByAddr map[string]govtypes.ValidatorGovInfo,
+	delegsByAddr map[string][]stakingtypes.Delegation,
+) (map[govtypes.VoteOption]sdk.Dec, sdk.Dec) {
+	var (
+		results = map[govtypes.VoteOption]sdk.Dec{
+			govtypes.OptionYes:        sdk.ZeroDec(),
+			govtypes.OptionAbstain:    sdk.ZeroDec(),
+			govtypes.OptionNo:         sdk.ZeroDec(),
+			govtypes.OptionNoWithVeto: sdk.ZeroDec(),
+		}
+		totalVotingPower = sdk.ZeroDec()
+	)
+	for _, vote := range votes {
+		// Check if it's a validator vote
+		voter := sdk.MustAccAddressFromBech32(vote.Voter)
+		valAddrStr := sdk.ValAddress(voter.Bytes()).String()
+		if val, ok := valsByAddr[valAddrStr]; ok {
+			// It's a validator vote
+			val.Vote = vote.Options
+			valsByAddr[valAddrStr] = val
+		}
+
+		// Check voter delegations
+		dels := delegsByAddr[vote.Voter]
+		// Initialize voter balance
+		// balance := sdk.NewDec(0)
+		for _, del := range dels {
+			val, ok := valsByAddr[del.ValidatorAddress]
+			if !ok {
+				// Validator isn't in active set or jailed, ignore
+				continue
+			}
+			// Reduce validator voting power with delegation that has voted
+			val.DelegatorDeductions = val.DelegatorDeductions.Add(del.GetShares())
+			valsByAddr[del.ValidatorAddress] = val
+
+			// delegation shares * bonded / total shares
+			votingPower := del.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+			// Iterate over vote options
+			for _, option := range vote.Options {
+				subPower := votingPower.Mul(option.Weight)
+				results[option.Option] = results[option.Option].Add(subPower)
+				// update balance according to vote
+				// balance = balance.Add(balanceFactors[option.Option](subPower))
+			}
+			totalVotingPower = totalVotingPower.Add(votingPower)
+		}
+		// Append voter balance to bank genesis
+		// balances = append(balances, banktypes.Balance{
+		// Address: vote.Voter,
+		// Coins:   sdk.NewCoins(sdk.NewCoin("u"+ticker, balance.TruncateInt())),
+		// })
+	}
+	// iterate over the validators again to tally their voting power
+	for _, val := range valsByAddr {
+		if len(val.Vote) == 0 {
+			continue
+		}
+		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
+		votingPower := sharesAfterDeductions.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+
+		for _, option := range val.Vote {
+			subPower := votingPower.Mul(option.Weight)
+			results[option.Option] = results[option.Option].Add(subPower)
+		}
+		totalVotingPower = totalVotingPower.Add(votingPower)
+	}
+	return results, totalVotingPower
+}
+
+func printTallyResults(results map[govtypes.VoteOption]sdk.Dec, totalVotingPower sdk.Dec, prop govtypes.Proposal) {
 	fmt.Println("Computed total voting power", h.Comma(totalVotingPower.TruncateInt64()))
 	yesPercent := results[govtypes.OptionYes].
 		Quo(totalVotingPower.Sub(results[govtypes.OptionAbstain]))
 	fmt.Println("Yes percent:", yesPercent)
 	tallyResult := govtypes.NewTallyResultFromMap(results)
-
-	// Get the prop from snashot to compare tally result
-	prop := parseProp(datapath)
 
 	fmt.Println("--- TALLY RESULT ---")
 	table := tablewriter.NewWriter(os.Stdout)
