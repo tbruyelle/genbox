@@ -87,7 +87,7 @@ func main() {
 }
 
 func parseVotes(path string) (govtypes.Votes, error) {
-	f, err := os.Open(filepath.Join(path, "votes_final.json"))
+	f, err := os.Open(filepath.Join(path, "votes.json"))
 	if err != nil {
 		return nil, err
 	}
