@@ -36,11 +36,11 @@ func init() {
 func main() {
 	// Read data from files
 	datapath := os.Args[1]
-	votes, err := parseVotes(datapath)
+	votesByAddr, err := parseVotesByAddr(datapath)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s votes\n", h.Comma(int64(len(votes))))
+	fmt.Printf("%s votes\n", h.Comma(int64(len(votesByAddr))))
 	valsByAddr, err := parseValidatorsByAddr(datapath)
 	if err != nil {
 		panic(err)
@@ -58,7 +58,7 @@ func main() {
 		h.Comma(int64(len(delegsByAddr))))
 
 	// Tally from snapshot data
-	results, totalVotingPower := tally(votes, valsByAddr, delegsByAddr)
+	results, totalVotingPower := tally(votesByAddr, valsByAddr, delegsByAddr)
 	// Optionnaly print and compare tally with prop data
 	printTallyResults(results, totalVotingPower, parseProp(datapath))
 
@@ -86,7 +86,7 @@ func main() {
 	}
 }
 
-func parseVotes(path string) (govtypes.Votes, error) {
+func parseVotesByAddr(path string) (map[string]govtypes.Vote, error) {
 	f, err := os.Open(filepath.Join(path, "votes.json"))
 	if err != nil {
 		return nil, err
@@ -98,16 +98,16 @@ func parseVotes(path string) (govtypes.Votes, error) {
 	if err != nil {
 		return nil, err
 	}
-	var votes govtypes.Votes
+	votesByAddr := make(map[string]govtypes.Vote)
 	for dec.More() {
 		var vote govtypes.Vote
 		err := unmarshaler.UnmarshalNext(dec, &vote)
 		if err != nil {
 			return nil, err
 		}
-		votes = append(votes, vote)
+		votesByAddr[vote.Voter] = vote
 	}
-	return votes, nil
+	return votesByAddr, nil
 }
 
 func parseDelegationsByAddr(path string) (map[string][]stakingtypes.Delegation, error) {
@@ -173,7 +173,7 @@ func parseProp(path string) govtypes.Proposal {
 }
 
 func tally(
-	votes []govtypes.Vote, valsByAddr map[string]govtypes.ValidatorGovInfo,
+	votesByAddr map[string]govtypes.Vote, valsByAddr map[string]govtypes.ValidatorGovInfo,
 	delegsByAddr map[string][]stakingtypes.Delegation,
 ) (map[govtypes.VoteOption]sdk.Dec, sdk.Dec) {
 	var (
@@ -185,7 +185,7 @@ func tally(
 		}
 		totalVotingPower = sdk.ZeroDec()
 	)
-	for _, vote := range votes {
+	for _, vote := range votesByAddr {
 		// Check if it's a validator vote
 		voter := sdk.MustAccAddressFromBech32(vote.Voter)
 		valAddrStr := sdk.ValAddress(voter.Bytes()).String()
