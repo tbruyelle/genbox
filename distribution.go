@@ -18,11 +18,12 @@ func computeDistribution(
 	balanceFactors map[govtypes.VoteOption]func(sdk.Dec) sdk.Dec,
 ) []banktypes.Balance {
 	// TODO write test and refac
-	var balances []banktypes.Balance
+	balances := []banktypes.Balance{}
 	for addr, delegs := range delegsByAddr {
 		// Did this address vote ?
 		vote, ok := votesByAddr[addr]
 		balance := sdk.ZeroDec()
+		// TODO check if it's a validator (and validator can have delegation!)
 		if ok {
 			votingPower := sdk.ZeroDec()
 			// Sum delegations voting power
@@ -53,6 +54,7 @@ func computeDistribution(
 					continue
 				}
 				// Convert validator address to account address to find vote
+				// FIXME validator vote is already available in val.Vote
 				valAddr, err := sdk.ValAddressFromBech32(deleg.ValidatorAddress)
 				if err != nil {
 					panic(err)
@@ -69,6 +71,8 @@ func computeDistribution(
 					}
 				}
 			}
+			// FIXME if nobody voted (nor delegator nor validator), what should we do ? consider abstain?
+			// Currently the delegator is completely slashed.
 		}
 		if !balance.IsZero() {
 			// Append voter balance to bank genesis
