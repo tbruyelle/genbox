@@ -74,10 +74,66 @@ func main() {
 			govtypes.OptionNoWithVeto: func(d sdk.Dec) sdk.Dec { return d.MulInt64(2) },
 		}
 	)
-	_ = balanceFactors
-	// TODO build balances:
-	// Compute votesByAddr map, iterate over delegeations, if no vote found,
-	// use validator vote to compute balance
+	// TODO write test and refac
+	for addr, delegs := range delegsByAddr {
+		// Did this address vote ?
+		vote, ok := votesByAddr[addr]
+		balance := sdk.ZeroDec()
+		if ok {
+			votingPower := sdk.ZeroDec()
+			// Sum delegations voting power
+			for _, deleg := range delegs {
+				// Find validator
+				val, ok := valsByAddr[deleg.ValidatorAddress]
+				if !ok {
+					// Validator isn't in active set or jailed, ignore
+					continue
+				}
+				// Compute delegation voting power
+				delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+				// Sum to voter voting power
+				votingPower = votingPower.Add(delegVotingPower)
+			}
+			// Iterate over vote options
+			for _, option := range vote.Options {
+				subPower := votingPower.Mul(option.Weight)
+				// update balance according to vote
+				balance = balance.Add(balanceFactors[option.Option](subPower))
+			}
+		} else {
+			// Didn't vote: check if validator has voted in delegations
+			for _, deleg := range delegs {
+				val, ok := valsByAddr[deleg.ValidatorAddress]
+				if !ok {
+					// Validator isn't in active set or jailed, ignore
+					continue
+				}
+				// Convert validator address to account address to find vote
+				valAddr, err := sdk.ValAddressFromBech32(deleg.ValidatorAddress)
+				if err != nil {
+					panic(err)
+				}
+				valAddrStr := sdk.AccAddress(valAddr.Bytes()).String()
+				if vote, ok := votesByAddr[valAddrStr]; ok {
+					// voter inherits validator vote
+					delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+					// Iterate over vote options
+					for _, option := range vote.Options {
+						subPower := delegVotingPower.Mul(option.Weight)
+						// update balance according to vote
+						balance = balance.Add(balanceFactors[option.Option](subPower))
+					}
+				}
+			}
+		}
+		if !balance.IsZero() {
+			// Append voter balance to bank genesis
+			balances = append(balances, banktypes.Balance{
+				Address: addr,
+				Coins:   sdk.NewCoins(sdk.NewCoin("u"+ticker, balance.TruncateInt())),
+			})
+		}
+	}
 
 	// Write bank genesis
 	err = writeBankGenesis(balances)
@@ -215,16 +271,9 @@ func tally(
 			for _, option := range vote.Options {
 				subPower := votingPower.Mul(option.Weight)
 				results[option.Option] = results[option.Option].Add(subPower)
-				// update balance according to vote
-				// balance = balance.Add(balanceFactors[option.Option](subPower))
 			}
 			totalVotingPower = totalVotingPower.Add(votingPower)
 		}
-		// Append voter balance to bank genesis
-		// balances = append(balances, banktypes.Balance{
-		// Address: vote.Voter,
-		// Coins:   sdk.NewCoins(sdk.NewCoin("u"+ticker, balance.TruncateInt())),
-		// })
 	}
 	// iterate over the validators again to tally their voting power
 	for _, val := range valsByAddr {
