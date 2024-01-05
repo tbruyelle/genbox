@@ -11,7 +11,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-func computeBalances(
+func computeDistribution(
 	delegsByAddr map[string][]stakingtypes.Delegation,
 	votesByAddr map[string]govtypes.Vote,
 	valsByAddr map[string]govtypes.ValidatorGovInfo,

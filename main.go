@@ -56,7 +56,7 @@ func main() {
 		govtypes.OptionNo:         func(d sdk.Dec) sdk.Dec { return d },
 		govtypes.OptionNoWithVeto: func(d sdk.Dec) sdk.Dec { return d.MulInt64(2) },
 	}
-	balances := computeBalances(delegsByAddr, votesByAddr, valsByAddr, balanceFactors)
+	balances := computeDistribution(delegsByAddr, votesByAddr, valsByAddr, balanceFactors)
 
 	// Write bank genesis
 	err = writeBankGenesis(balances)
