@@ -15,11 +15,11 @@ import (
 func TestComputeDistribution(t *testing.T) {
 	var (
 		accAddrs = createAccountAddrs(2)
-		accAddr1 = accAddrs[0]
+		accAddr1 = accAddrs[0].String()
 		// voterAddr2 = accAddrs[1]
 		valAddrs    = createValidatorAddrs(2)
-		valAddr1    = valAddrs[0]
-		valAccAddr1 = sdk.AccAddress(valAddr1)
+		valAddr1    = valAddrs[0].String()
+		valAccAddr1 = sdk.AccAddress(valAddrs[0]).String()
 		// valAddr2   = valAddrs[1]
 		noChangeBalanceFactor = map[govtypes.VoteOption]func(sdk.Dec) sdk.Dec{
 			// XXX these are basic raw examples of airdrop/slash functions
@@ -44,10 +44,10 @@ func TestComputeDistribution(t *testing.T) {
 		{
 			name: "one delegation without validator",
 			delegsByAddr: map[string][]stakingtypes.Delegation{
-				accAddr1.String(): {
+				accAddr1: {
 					{
-						DelegatorAddress: accAddr1.String(),
-						ValidatorAddress: valAddr1.String(),
+						DelegatorAddress: accAddr1,
+						ValidatorAddress: valAddr1,
 						Shares:           sdk.NewDec(1000),
 					},
 				},
@@ -57,19 +57,20 @@ func TestComputeDistribution(t *testing.T) {
 		{
 			name: "one delegation with validator didn't vote",
 			delegsByAddr: map[string][]stakingtypes.Delegation{
-				accAddr1.String(): {
+				accAddr1: {
 					{
-						DelegatorAddress: accAddr1.String(),
-						ValidatorAddress: valAddr1.String(),
+						DelegatorAddress: accAddr1,
+						ValidatorAddress: valAddr1,
 						Shares:           sdk.NewDec(1000),
 					},
 				},
 			},
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
-				valAddr1.String(): {
-					Address:         valAddr1,
-					BondedTokens:    sdk.NewInt(1000000),
-					DelegatorShares: sdk.NewDec(1000000),
+				valAddr1: {
+					Address:             valAddrs[0],
+					BondedTokens:        sdk.NewInt(1000000),
+					DelegatorShares:     sdk.NewDec(1000000),
+					DelegatorDeductions: sdk.ZeroDec(),
 				},
 			},
 			expectedDistribution: []banktypes.Balance{},
@@ -77,23 +78,24 @@ func TestComputeDistribution(t *testing.T) {
 		{
 			name: "one delegation with validator: inherit vote",
 			delegsByAddr: map[string][]stakingtypes.Delegation{
-				accAddr1.String(): {
+				accAddr1: {
 					{
-						DelegatorAddress: accAddr1.String(),
-						ValidatorAddress: valAddr1.String(),
+						DelegatorAddress: accAddr1,
+						ValidatorAddress: valAddr1,
 						Shares:           sdk.NewDec(1000),
 					},
 				},
 			},
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
-				valAddr1.String(): {
-					Address:         valAddr1,
-					BondedTokens:    sdk.NewInt(1000000),
-					DelegatorShares: sdk.NewDec(1000000),
+				valAddr1: {
+					Address:             valAddrs[0],
+					BondedTokens:        sdk.NewInt(1000000),
+					DelegatorShares:     sdk.NewDec(1000000),
+					DelegatorDeductions: sdk.ZeroDec(),
 				},
 			},
 			votesByAddr: map[string]govtypes.Vote{
-				valAccAddr1.String(): {
+				valAccAddr1: {
 					Options: []govtypes.WeightedVoteOption{{
 						Option: govtypes.OptionYes,
 						Weight: sdk.NewDec(1),
@@ -102,10 +104,8 @@ func TestComputeDistribution(t *testing.T) {
 			},
 			balanceFactors: noChangeBalanceFactor,
 			expectedDistribution: []banktypes.Balance{
-				{
-					Address: accAddr1.String(),
-					Coins:   sdk.NewCoins(sdk.NewInt64Coin("u"+ticker, 1000)),
-				},
+				newBalance(accAddr1, 1000),
+				newBalance(valAccAddr1, 1000000-1000),
 			},
 		},
 	}
@@ -113,7 +113,7 @@ func TestComputeDistribution(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			balances := computeDistribution(tt.delegsByAddr, tt.votesByAddr, tt.valsByAddr, tt.balanceFactors)
 
-			assert.Equal(t, tt.expectedDistribution, balances)
+			assert.ElementsMatch(t, tt.expectedDistribution, balances)
 		})
 	}
 }

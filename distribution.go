@@ -20,6 +20,16 @@ func computeDistribution(
 	// TODO write test and refac
 	balances := []banktypes.Balance{}
 	for addr, delegs := range delegsByAddr {
+		// First loop on delegs to update validator.DelegatorDeductions
+		for _, deleg := range delegs {
+			val, ok := valsByAddr[deleg.ValidatorAddress]
+			if !ok {
+				// Validator isn't in active set or jailed, ignore
+				continue
+			}
+			val.DelegatorDeductions = val.DelegatorDeductions.Add(deleg.GetShares())
+			valsByAddr[deleg.ValidatorAddress] = val
+		}
 		// Did this address vote ?
 		vote, ok := votesByAddr[addr]
 		balance := sdk.ZeroDec()
@@ -53,14 +63,8 @@ func computeDistribution(
 					// Validator isn't in active set or jailed, ignore
 					continue
 				}
-				// Convert validator address to account address to find vote
-				// FIXME validator vote is already available in val.Vote
-				valAddr, err := sdk.ValAddressFromBech32(deleg.ValidatorAddress)
-				if err != nil {
-					panic(err)
-				}
-				valAddrStr := sdk.AccAddress(valAddr.Bytes()).String()
-				if vote, ok := votesByAddr[valAddrStr]; ok {
+				vote := findValidatorVote(deleg.ValidatorAddress, votesByAddr)
+				if len(vote.Options) > 0 {
 					// voter inherits validator vote
 					delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
 					// Iterate over vote options
@@ -76,10 +80,29 @@ func computeDistribution(
 		}
 		if !balance.IsZero() {
 			// Append voter balance to bank genesis
-			balances = append(balances, banktypes.Balance{
-				Address: addr,
-				Coins:   sdk.NewCoins(sdk.NewCoin("u"+ticker, balance.TruncateInt())),
-			})
+			balances = append(balances, newBalance(addr, balance.TruncateInt64()))
+		}
+	}
+	// Loop on validators' vote
+	for _, val := range valsByAddr {
+		vote := findValidatorVote(val.Address.String(), votesByAddr)
+		if len(vote.Options) == 0 {
+			continue
+		}
+
+		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
+		votingPower := sharesAfterDeductions.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+
+		balance := sdk.ZeroDec()
+		for _, option := range vote.Options {
+			subPower := votingPower.Mul(option.Weight)
+			balance = balance.Add(balanceFactors[option.Option](subPower))
+		}
+		if !balance.IsZero() {
+			// TODO add a AccAddress field in the struct used in valsByAddr?
+			valAccAddr := sdk.AccAddress(val.Address.Bytes())
+			// Append voter balance to bank genesis
+			balances = append(balances, newBalance(valAccAddr.String(), balance.TruncateInt64()))
 		}
 	}
 	return balances
@@ -120,4 +143,22 @@ func writeBankGenesis(balances []banktypes.Balance) error {
 		return err
 	}
 	return os.WriteFile("bank.genesis", bz, 0o666)
+}
+
+func newBalance(addr string, amount int64) banktypes.Balance {
+	return banktypes.Balance{
+		Address: addr,
+		Coins:   sdk.NewCoins(sdk.NewInt64Coin("u"+ticker, amount)),
+	}
+}
+
+// TODO use a struct to hold xxxByAddr maps?
+func findValidatorVote(valAddrStr string, votesByAddr map[string]govtypes.Vote) govtypes.Vote {
+	// Convert validator address to account address to find vote
+	valAddr, err := sdk.ValAddressFromBech32(valAddrStr)
+	if err != nil {
+		panic(err)
+	}
+	valAccAddrStr := sdk.AccAddress(valAddr.Bytes()).String()
+	return votesByAddr[valAccAddrStr]
 }

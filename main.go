@@ -38,6 +38,9 @@ func main() {
 	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
 		h.Comma(int64(len(delegsByAddr))))
 
+	// TODO Call tally or compute balances but not both bc we don't want to
+	// update the validator deduction twice.
+
 	//-----------------------------------------
 	// Tally from data
 
