@@ -5,18 +5,22 @@ import (
 	"os"
 
 	h "github.com/dustin/go-humanize"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 const ticker = "govno"
 
 func main() {
+	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "genesis") {
+		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|genesis] [datapath]\n", os.Args[0])
+		os.Exit(1)
+	}
 	//-----------------------------------------
 	// Read data from files
 
-	datapath := os.Args[1]
+	var (
+		command  = os.Args[1]
+		datapath = os.Args[2]
+	)
 	votesByAddr, err := parseVotesByAddr(datapath)
 	if err != nil {
 		panic(err)
@@ -38,32 +42,20 @@ func main() {
 	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
 		h.Comma(int64(len(delegsByAddr))))
 
-	// TODO Call tally or compute balances but not both bc we don't want to
-	// update the validator deduction twice.
+	switch command {
+	case "tally":
+		results, totalVotingPower := tally(votesByAddr, valsByAddr, delegsByAddr)
+		// Optionnaly print and compare tally with prop data
+		printTallyResults(results, totalVotingPower, parseProp(datapath))
 
-	//-----------------------------------------
-	// Tally from data
+	case "genesis":
+		accountVotes := getAccountVotes(delegsByAddr, votesByAddr, valsByAddr)
+		_ = accountVotes
 
-	results, totalVotingPower := tally(votesByAddr, valsByAddr, delegsByAddr)
-	// Optionnaly print and compare tally with prop data
-	printTallyResults(results, totalVotingPower, parseProp(datapath))
-
-	//-----------------------------------------
-	// Compute balances
-
-	// balanceFactors maps vote option and airdrop/slash functions
-	balanceFactors := map[govtypes.VoteOption]func(sdk.Dec) sdk.Dec{
-		// XXX these are basic raw examples of airdrop/slash functions
-		govtypes.OptionYes:        func(d sdk.Dec) sdk.Dec { return sdk.ZeroDec() },
-		govtypes.OptionAbstain:    func(d sdk.Dec) sdk.Dec { return d.QuoInt64(2) },
-		govtypes.OptionNo:         func(d sdk.Dec) sdk.Dec { return d },
-		govtypes.OptionNoWithVeto: func(d sdk.Dec) sdk.Dec { return d.MulInt64(2) },
-	}
-	balances := computeDistribution(delegsByAddr, votesByAddr, valsByAddr, balanceFactors)
-
-	// Write bank genesis
-	err = writeBankGenesis(balances)
-	if err != nil {
-		panic(err)
+		// Write bank genesis
+		err = writeBankGenesis(accountVotes)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
