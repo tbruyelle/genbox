@@ -52,7 +52,7 @@ func TestGetAccountVotes(t *testing.T) {
 			expectedAccountVotes: []AccountVote{},
 		},
 		{
-			name: "one delegation without validator",
+			name: "one delegation without active validator",
 			delegsByAddr: map[string][]stakingtypes.Delegation{
 				accAddr1: {
 					{
