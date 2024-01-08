@@ -14,20 +14,22 @@ func writeBankGenesis(accountVotes []AccountVote) error {
 	var balances []banktypes.Balance
 	for _, a := range accountVotes {
 		balance := sdk.ZeroDec()
-		for _, option := range a.Vote.Options {
-			subPower := a.Power.Mul(option.Weight)
-			// TODO apply bonus or slash function according to option
-			switch option.Option {
-			case govtypes.OptionYes:
-				// ??
-			case govtypes.OptionNo:
-				// ??
-			case govtypes.OptionAbstain:
-				// ??
-			case govtypes.OptionNoWithVeto:
-				// ??
+		for _, pvote := range a.PoweredVotes {
+			for _, option := range pvote.Vote.Options {
+				subPower := pvote.Power.Mul(option.Weight)
+				// TODO apply bonus or slash function according to option
+				switch option.Option {
+				case govtypes.OptionYes:
+					// ??
+				case govtypes.OptionNo:
+					// ??
+				case govtypes.OptionAbstain:
+					// ??
+				case govtypes.OptionNoWithVeto:
+					// ??
+				}
+				balance = balance.Add(subPower)
 			}
-			balance = balance.Add(subPower)
 		}
 		balances = append(balances, banktypes.Balance{
 			Address: a.Address,

@@ -6,10 +6,17 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
+// TODO add liquid balance?
 type AccountVote struct {
-	Address string
-	Power   sdk.Dec
-	Vote    govtypes.Vote
+	Address      string
+	TotalPower   sdk.Dec       // TODO use for check TODO Rename
+	PoweredVotes []PoweredVote // TODO consider DirectVote and IndirectVotes field?
+}
+
+type PoweredVote struct {
+	Power     sdk.Dec // TODO Rename to Delegation since it can be filled without votes
+	Vote      govtypes.Vote
+	Inherited bool
 }
 
 // getAccountVotes returns the list of all account with their vote and
@@ -22,72 +29,68 @@ func getAccountVotes(
 	// TODO write test and refac
 	accountVotes := []AccountVote{}
 	for addr, delegs := range delegsByAddr {
+		accountVote := AccountVote{
+			Address:    addr,
+			TotalPower: sdk.ZeroDec(),
+		}
 		// Did this address vote ?
-		vote, ok := votesByAddr[addr]
+		directVote, hasVoted := votesByAddr[addr]
 		// TODO check if it's a validator (and validator can have delegation!)
-		if ok {
-			votingPower := sdk.ZeroDec()
-			// Sum delegations voting power
-			for _, deleg := range delegs {
-				// Find validator
-				val, ok := valsByAddr[deleg.ValidatorAddress]
-				if !ok {
-					// Validator isn't in active set or jailed, ignore
-					continue
-				}
-				// Deduct voter power from validator delegation power
-				val.DelegatorDeductions = val.DelegatorDeductions.Add(deleg.GetShares())
-				valsByAddr[deleg.ValidatorAddress] = val
+		for _, deleg := range delegs {
+			// Find validator
+			val, ok := valsByAddr[deleg.ValidatorAddress]
+			if !ok {
+				// Validator isn't in active set or jailed, ignore
+				continue
+			}
+			// Deduct voter power from validator delegation power, because in the
+			// following loop on validator we want to compute the validator self
+			// delegation.
+			val.DelegatorDeductions = val.DelegatorDeductions.Add(deleg.GetShares())
+			valsByAddr[deleg.ValidatorAddress] = val
 
-				// Compute delegation voting power
-				delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
-				// Sum to voter voting power
-				votingPower = votingPower.Add(delegVotingPower)
+			// Compute delegation voting power
+			delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
+			accountVote.TotalPower = accountVote.TotalPower.Add(delegVotingPower)
+
+			if !hasVoted {
+				// addr hasn't voted: inherit validator vote
+				validatorVote := findValidatorVote(deleg.ValidatorAddress, votesByAddr)
+				accountVote.PoweredVotes = append(accountVote.PoweredVotes, PoweredVote{
+					Power:     delegVotingPower,
+					Vote:      validatorVote, // if validator hasn't voted this will be empty
+					Inherited: true,
+				})
 			}
-			accountVotes = append(accountVotes, AccountVote{
-				Address: addr,
-				Power:   votingPower,
-				Vote:    vote,
+		}
+		if hasVoted {
+			// Add the direct vote
+			accountVote.PoweredVotes = append(accountVote.PoweredVotes, PoweredVote{
+				Power:     accountVote.TotalPower,
+				Vote:      directVote,
+				Inherited: false,
 			})
-		} else {
-			// Didn't vote: check if validator has voted in delegations
-			for _, deleg := range delegs {
-				val, ok := valsByAddr[deleg.ValidatorAddress]
-				if !ok {
-					// Validator isn't in active set or jailed, ignore
-					continue
-				}
-				vote := findValidatorVote(deleg.ValidatorAddress, votesByAddr)
-				if len(vote.Options) > 0 {
-					// voter inherits validator vote
-					delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
-					accountVotes = append(accountVotes, AccountVote{
-						Address: addr,
-						Power:   delegVotingPower,
-						Vote:    vote,
-					})
-				}
-				// FIXME if nobody voted (nor delegator nor validator), what should we do ? consider abstain?
-				// Currently the delegator is completely slashed.
-			}
+		}
+		if !accountVote.TotalPower.IsZero() {
+			accountVotes = append(accountVotes, accountVote)
 		}
 	}
-	// Loop on validators' vote
+	// Add validator accounts
 	for _, val := range valsByAddr {
 		vote := findValidatorVote(val.Address.String(), votesByAddr)
-		if len(vote.Options) == 0 {
-			continue
-		}
 
 		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
 		votingPower := sharesAfterDeductions.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
 
 		// TODO add a AccAddress field in the struct used in valsByAddr?
-		valAccAddr := sdk.AccAddress(val.Address.Bytes())
+		valAccAddr := sdk.AccAddress(val.Address.Bytes()) // TODO ensure this is a correct way to derive account address
 		accountVotes = append(accountVotes, AccountVote{
-			Address: valAccAddr.String(),
-			Power:   votingPower,
-			Vote:    vote,
+			Address:    valAccAddr.String(),
+			TotalPower: votingPower,
+			PoweredVotes: []PoweredVote{{
+				Power: votingPower,
+				Vote:  vote,
+			}},
 		})
 	}
 	return accountVotes
