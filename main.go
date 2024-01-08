@@ -26,7 +26,7 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("%s votes\n", h.Comma(int64(len(votesByAddr))))
-	valsByAddr, err := parseValidatorsByAddr(datapath)
+	valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
 	if err != nil {
 		panic(err)
 	}

@@ -10,21 +10,21 @@ type Account struct {
 	Address      string
 	LiquidAmount sdk.Dec // TODO fill with bank balances
 	StakedAmount sdk.Dec // TODO compare with sum of delegations?
-	Vote         govtypes.Vote
+	Vote         govtypes.WeightedVoteOptions
 	Delegations  []Delegation
 }
 
 type Delegation struct {
 	Amount           sdk.Dec
 	ValidatorAddress string
-	Vote             govtypes.Vote
+	Vote             govtypes.WeightedVoteOptions
 }
 
 // getAccounts returns the list of all account with their vote and
 // power, from direct or indirect votes.
 func getAccounts(
 	delegsByAddr map[string][]stakingtypes.Delegation,
-	votesByAddr map[string]govtypes.Vote,
+	votesByAddr map[string]govtypes.WeightedVoteOptions,
 	valsByAddr map[string]govtypes.ValidatorGovInfo,
 ) []Account {
 	// TODO write test and refac
@@ -57,38 +57,26 @@ func getAccounts(
 			account.Delegations = append(account.Delegations, Delegation{
 				ValidatorAddress: val.Address.String(),
 				Amount:           delegVotingPower,
-				Vote:             findValidatorVote(deleg.ValidatorAddress, votesByAddr),
+				Vote:             val.Vote,
 			})
 		}
 		accounts = append(accounts, account)
 	}
 	// Add validator accounts
 	for _, val := range valsByAddr {
-		vote := findValidatorVote(val.Address.String(), votesByAddr)
-
+		// Compute self delegation
 		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
 		votingPower := sharesAfterDeductions.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
 
 		// TODO add a AccAddress field in the struct used in valsByAddr?
-		valAccAddr := sdk.AccAddress(val.Address.Bytes()) // TODO ensure this is a correct way to derive account address
+		valAccAddr := sdk.AccAddress(val.Address.Bytes())
 		// TODO if validator has delegations, he's already in accounts: handle that!
 		accounts = append(accounts, Account{
 			Address:      valAccAddr.String(),
 			LiquidAmount: sdk.ZeroDec(),
 			StakedAmount: votingPower,
-			Vote:         vote,
+			Vote:         val.Vote,
 		})
 	}
 	return accounts
-}
-
-// TODO use a struct to hold xxxByAddr maps?
-func findValidatorVote(valAddrStr string, votesByAddr map[string]govtypes.Vote) govtypes.Vote {
-	// Convert validator address to account address to find vote
-	valAddr, err := sdk.ValAddressFromBech32(valAddrStr)
-	if err != nil {
-		panic(err)
-	}
-	valAccAddrStr := sdk.AccAddress(valAddr.Bytes()).String()
-	return votesByAddr[valAccAddrStr]
 }

@@ -10,9 +10,9 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
-func applyVoteOptions(vote govtypes.Vote, amount sdk.Dec) sdk.Dec {
+func applyVoteOptions(vote govtypes.WeightedVoteOptions, amount sdk.Dec) sdk.Dec {
 	balance := sdk.ZeroDec()
-	for _, option := range vote.Options {
+	for _, option := range vote {
 		subPower := amount.Mul(option.Weight)
 		// TODO apply bonus or slash function according to option
 		switch option.Option {
@@ -35,7 +35,7 @@ func writeBankGenesis(accounts []Account) error {
 	var balances []banktypes.Balance
 	for _, a := range accounts {
 		balance := sdk.ZeroDec()
-		if len(a.Vote.Options) > 0 {
+		if len(a.Vote) > 0 {
 			// Direct vote
 			balance = applyVoteOptions(a.Vote, a.StakedAmount)
 		} else {

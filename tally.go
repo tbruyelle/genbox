@@ -13,7 +13,7 @@ import (
 )
 
 func tally(
-	votesByAddr map[string]govtypes.Vote, valsByAddr map[string]govtypes.ValidatorGovInfo,
+	votesByAddr map[string]govtypes.WeightedVoteOptions, valsByAddr map[string]govtypes.ValidatorGovInfo,
 	delegsByAddr map[string][]stakingtypes.Delegation,
 ) (map[govtypes.VoteOption]sdk.Dec, sdk.Dec) {
 	var (
@@ -25,18 +25,9 @@ func tally(
 		}
 		totalVotingPower = sdk.ZeroDec()
 	)
-	for _, vote := range votesByAddr {
-		// Check if it's a validator vote
-		voter := sdk.MustAccAddressFromBech32(vote.Voter)
-		valAddrStr := sdk.ValAddress(voter.Bytes()).String()
-		if val, ok := valsByAddr[valAddrStr]; ok {
-			// It's a validator vote
-			val.Vote = vote.Options
-			valsByAddr[valAddrStr] = val
-		}
-
+	for voterAddr, vote := range votesByAddr {
 		// Check voter delegations
-		dels := delegsByAddr[vote.Voter]
+		dels := delegsByAddr[voterAddr]
 		// Initialize voter balance
 		// balance := sdk.NewDec(0)
 		for _, del := range dels {
@@ -52,7 +43,7 @@ func tally(
 			// delegation shares * bonded / total shares
 			votingPower := del.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
 			// Iterate over vote options
-			for _, option := range vote.Options {
+			for _, option := range vote {
 				subPower := votingPower.Mul(option.Weight)
 				results[option.Option] = results[option.Option].Add(subPower)
 			}

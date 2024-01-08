@@ -26,7 +26,7 @@ func init() {
 	unmarshaler = jsonpb.Unmarshaler{AnyResolver: registry}
 }
 
-func parseVotesByAddr(path string) (map[string]govtypes.Vote, error) {
+func parseVotesByAddr(path string) (map[string]govtypes.WeightedVoteOptions, error) {
 	f, err := os.Open(filepath.Join(path, "votes.json"))
 	if err != nil {
 		return nil, err
@@ -38,14 +38,14 @@ func parseVotesByAddr(path string) (map[string]govtypes.Vote, error) {
 	if err != nil {
 		return nil, err
 	}
-	votesByAddr := make(map[string]govtypes.Vote)
+	votesByAddr := make(map[string]govtypes.WeightedVoteOptions)
 	for dec.More() {
 		var vote govtypes.Vote
 		err := unmarshaler.UnmarshalNext(dec, &vote)
 		if err != nil {
 			return nil, err
 		}
-		votesByAddr[vote.Voter] = vote
+		votesByAddr[vote.Voter] = vote.Options
 	}
 	return votesByAddr, nil
 }
@@ -68,7 +68,7 @@ func parseDelegationsByAddr(path string) (map[string][]stakingtypes.Delegation, 
 	return delegsByAddr, nil
 }
 
-func parseValidatorsByAddr(path string) (map[string]govtypes.ValidatorGovInfo, error) {
+func parseValidatorsByAddr(path string, votesByAddr map[string]govtypes.WeightedVoteOptions) (map[string]govtypes.ValidatorGovInfo, error) {
 	f, err := os.Open(filepath.Join(path, "active_validators.json"))
 	if err != nil {
 		return nil, err
@@ -87,12 +87,18 @@ func parseValidatorsByAddr(path string) (map[string]govtypes.ValidatorGovInfo, e
 		if err != nil {
 			return nil, err
 		}
+
+		valAddr, err := sdk.ValAddressFromBech32(val.OperatorAddress)
+		if err != nil {
+			panic(err)
+		}
+		accAddr := sdk.AccAddress(valAddr.Bytes()).String()
 		valsByAddr[val.OperatorAddress] = govtypes.NewValidatorGovInfo(
 			val.GetOperator(),
 			val.GetBondedTokens(),
 			val.GetDelegatorShares(),
 			sdk.ZeroDec(),
-			govtypes.WeightedVoteOptions{},
+			votesByAddr[accAddr],
 		)
 	}
 	return valsByAddr, nil

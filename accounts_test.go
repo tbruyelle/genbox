@@ -18,47 +18,41 @@ func TestGetAccounts(t *testing.T) {
 		// voterAddr2 = accAddrs[1]
 		valAddrs = createValidatorAddrs(2)
 		// Validator1
-		valAddr1    = valAddrs[0].String()
-		valAccAddr1 = sdk.AccAddress(valAddrs[0]).String()
-		val1        = govtypes.ValidatorGovInfo{
-			Address:             valAddrs[0],
-			BondedTokens:        sdk.NewInt(1000000),
-			DelegatorShares:     sdk.NewDec(1000000),
-			DelegatorDeductions: sdk.ZeroDec(),
-		}
+		valAddr1       = valAddrs[0]
+		valAddr1Str    = valAddr1.String()
+		valAccAddr1Str = sdk.AccAddress(valAddrs[0]).String()
 		// Validator2
-		valAddr2    = valAddrs[1].String()
-		valAccAddr2 = sdk.AccAddress(valAddrs[1]).String()
-		val2        = govtypes.ValidatorGovInfo{
-			Address:             valAddrs[1],
-			BondedTokens:        sdk.NewInt(2000000),
-			DelegatorShares:     sdk.NewDec(2000000),
-			DelegatorDeductions: sdk.ZeroDec(),
+		valAddr2       = valAddrs[1]
+		valAddr2Str    = valAddr2.String()
+		valAccAddr2Str = sdk.AccAddress(valAddrs[1]).String()
+		newVal         = func(addr sdk.ValAddress, bonded, shares int64, vote govtypes.WeightedVoteOptions) govtypes.ValidatorGovInfo {
+			return govtypes.ValidatorGovInfo{
+				Address:             addr,
+				BondedTokens:        sdk.NewInt(bonded),
+				DelegatorShares:     sdk.NewDec(shares),
+				DelegatorDeductions: sdk.ZeroDec(),
+				Vote:                vote,
+			}
 		}
 		// Some votes
-		voteYes = govtypes.Vote{
-			Options: []govtypes.WeightedVoteOption{{
-				Option: govtypes.OptionYes,
-				Weight: sdk.NewDec(1),
-			}},
-		}
-		voteNo = govtypes.Vote{
-			Options: []govtypes.WeightedVoteOption{{
-				Option: govtypes.OptionNo,
-				Weight: sdk.NewDec(1),
-			}},
-		}
-		voteAbstain = govtypes.Vote{
-			Options: []govtypes.WeightedVoteOption{{
-				Option: govtypes.OptionAbstain,
-				Weight: sdk.NewDec(1),
-			}},
-		}
+		noVote  govtypes.WeightedVoteOptions
+		voteYes = govtypes.WeightedVoteOptions{{
+			Option: govtypes.OptionYes,
+			Weight: sdk.NewDec(1),
+		}}
+		voteNo = govtypes.WeightedVoteOptions{{
+			Option: govtypes.OptionNo,
+			Weight: sdk.NewDec(1),
+		}}
+		voteAbstain = govtypes.WeightedVoteOptions{{
+			Option: govtypes.OptionAbstain,
+			Weight: sdk.NewDec(1),
+		}}
 	)
 	tests := []struct {
 		name             string
 		delegsByAddr     map[string][]stakingtypes.Delegation
-		votesByAddr      map[string]govtypes.Vote
+		votesByAddr      map[string]govtypes.WeightedVoteOptions
 		valsByAddr       map[string]govtypes.ValidatorGovInfo
 		expectedAccounts []Account
 	}{
@@ -72,7 +66,7 @@ func TestGetAccounts(t *testing.T) {
 				accAddr1: {
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Shares:           sdk.NewDec(1000),
 					},
 				},
@@ -91,13 +85,13 @@ func TestGetAccounts(t *testing.T) {
 				accAddr1: {
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Shares:           sdk.NewDec(1000),
 					},
 				},
 			},
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
-				valAddr1: val1,
+				valAddr1Str: newVal(valAddr1, 1000000, 1000000, noVote),
 			},
 			expectedAccounts: []Account{
 				{
@@ -105,12 +99,12 @@ func TestGetAccounts(t *testing.T) {
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(1000),
 					Delegations: []Delegation{{
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Amount:           sdk.NewDec(1000),
 					}},
 				},
 				{
-					Address:      valAccAddr1,
+					Address:      valAccAddr1Str,
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 				},
@@ -122,16 +116,13 @@ func TestGetAccounts(t *testing.T) {
 				accAddr1: {
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Shares:           sdk.NewDec(1000),
 					},
 				},
 			},
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
-				valAddr1: val1,
-			},
-			votesByAddr: map[string]govtypes.Vote{
-				valAccAddr1: voteNo,
+				valAddr1Str: newVal(valAddr1, 1000000, 1000000, voteNo),
 			},
 			expectedAccounts: []Account{
 				{
@@ -139,13 +130,13 @@ func TestGetAccounts(t *testing.T) {
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(1000),
 					Delegations: []Delegation{{
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Amount:           sdk.NewDec(1000),
 						Vote:             voteNo,
 					}},
 				},
 				{
-					Address:      valAccAddr1,
+					Address:      valAccAddr1Str,
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
@@ -158,17 +149,16 @@ func TestGetAccounts(t *testing.T) {
 				accAddr1: {
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Shares:           sdk.NewDec(1000),
 					},
 				},
 			},
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
-				valAddr1: val1,
+				valAddr1Str: newVal(valAddr1, 1000000, 1000000, voteNo),
 			},
-			votesByAddr: map[string]govtypes.Vote{
-				valAccAddr1: voteNo,
-				accAddr1:    voteYes,
+			votesByAddr: map[string]govtypes.WeightedVoteOptions{
+				accAddr1: voteYes,
 			},
 			expectedAccounts: []Account{
 				{
@@ -177,13 +167,13 @@ func TestGetAccounts(t *testing.T) {
 					StakedAmount: sdk.NewDec(1000),
 					Vote:         voteYes,
 					Delegations: []Delegation{{
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Amount:           sdk.NewDec(1000),
 						Vote:             voteNo,
 					}},
 				},
 				{
-					Address:      valAccAddr1,
+					Address:      valAccAddr1Str,
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
@@ -196,23 +186,19 @@ func TestGetAccounts(t *testing.T) {
 				accAddr1: {
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Shares:           sdk.NewDec(1000),
 					},
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr2,
+						ValidatorAddress: valAddr2Str,
 						Shares:           sdk.NewDec(2000),
 					},
 				},
 			},
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
-				valAddr1: val1,
-				valAddr2: val2,
-			},
-			votesByAddr: map[string]govtypes.Vote{
-				valAccAddr1: voteNo,
-				valAccAddr2: voteYes,
+				valAddr1Str: newVal(valAddr1, 1000000, 1000000, voteNo),
+				valAddr2Str: newVal(valAddr2, 2000000, 2000000, voteYes),
 			},
 			expectedAccounts: []Account{
 				{
@@ -221,25 +207,25 @@ func TestGetAccounts(t *testing.T) {
 					StakedAmount: sdk.NewDec(3000),
 					Delegations: []Delegation{
 						{
-							ValidatorAddress: valAddr1,
+							ValidatorAddress: valAddr1Str,
 							Amount:           sdk.NewDec(1000),
 							Vote:             voteNo,
 						},
 						{
-							ValidatorAddress: valAddr2,
+							ValidatorAddress: valAddr2Str,
 							Amount:           sdk.NewDec(2000),
 							Vote:             voteYes,
 						},
 					},
 				},
 				{
-					Address:      valAccAddr1,
+					Address:      valAccAddr1Str,
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
 				},
 				{
-					Address:      valAccAddr2,
+					Address:      valAccAddr2Str,
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(2000000 - 2000),
 					Vote:         voteYes,
@@ -252,24 +238,22 @@ func TestGetAccounts(t *testing.T) {
 				accAddr1: {
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr1,
+						ValidatorAddress: valAddr1Str,
 						Shares:           sdk.NewDec(1000),
 					},
 					{
 						DelegatorAddress: accAddr1,
-						ValidatorAddress: valAddr2,
+						ValidatorAddress: valAddr2Str,
 						Shares:           sdk.NewDec(2000),
 					},
 				},
 			},
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
-				valAddr1: val1,
-				valAddr2: val2,
+				valAddr1Str: newVal(valAddr1, 1000000, 1000000, voteNo),
+				valAddr2Str: newVal(valAddr2, 2000000, 2000000, voteYes),
 			},
-			votesByAddr: map[string]govtypes.Vote{
-				accAddr1:    voteAbstain,
-				valAccAddr1: voteNo,
-				valAccAddr2: voteYes,
+			votesByAddr: map[string]govtypes.WeightedVoteOptions{
+				accAddr1: voteAbstain,
 			},
 			expectedAccounts: []Account{
 				{
@@ -279,25 +263,25 @@ func TestGetAccounts(t *testing.T) {
 					Vote:         voteAbstain,
 					Delegations: []Delegation{
 						{
-							ValidatorAddress: valAddr1,
+							ValidatorAddress: valAddr1Str,
 							Amount:           sdk.NewDec(1000),
 							Vote:             voteNo,
 						},
 						{
-							ValidatorAddress: valAddr2,
+							ValidatorAddress: valAddr2Str,
 							Amount:           sdk.NewDec(2000),
 							Vote:             voteYes,
 						},
 					},
 				},
 				{
-					Address:      valAccAddr1,
+					Address:      valAccAddr1Str,
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
 				},
 				{
-					Address:      valAccAddr2,
+					Address:      valAccAddr2Str,
 					LiquidAmount: sdk.ZeroDec(),
 					StakedAmount: sdk.NewDec(2000000 - 2000),
 					Vote:         voteYes,
