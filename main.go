@@ -49,11 +49,10 @@ func main() {
 		printTallyResults(results, totalVotingPower, parseProp(datapath))
 
 	case "genesis":
-		accountVotes := getAccountVotes(delegsByAddr, votesByAddr, valsByAddr)
-		_ = accountVotes
+		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr)
 
 		// Write bank genesis
-		err = writeBankGenesis(accountVotes)
+		err = writeBankGenesis(accounts)
 		if err != nil {
 			panic(err)
 		}

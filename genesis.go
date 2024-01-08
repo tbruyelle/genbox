@@ -10,25 +10,38 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
-func writeBankGenesis(accountVotes []AccountVote) error {
+func applyVoteOptions(vote govtypes.Vote, amount sdk.Dec) sdk.Dec {
+	balance := sdk.ZeroDec()
+	for _, option := range vote.Options {
+		subPower := amount.Mul(option.Weight)
+		// TODO apply bonus or slash function according to option
+		switch option.Option {
+		case govtypes.OptionYes:
+			// ??
+		case govtypes.OptionNo:
+			// ??
+		case govtypes.OptionAbstain:
+			// ??
+		case govtypes.OptionNoWithVeto:
+			// ??
+		}
+		balance = balance.Add(subPower)
+	}
+	return balance
+}
+
+// TODO add tests
+func writeBankGenesis(accounts []Account) error {
 	var balances []banktypes.Balance
-	for _, a := range accountVotes {
+	for _, a := range accounts {
 		balance := sdk.ZeroDec()
-		for _, pvote := range a.PoweredVotes {
-			for _, option := range pvote.Vote.Options {
-				subPower := pvote.Power.Mul(option.Weight)
-				// TODO apply bonus or slash function according to option
-				switch option.Option {
-				case govtypes.OptionYes:
-					// ??
-				case govtypes.OptionNo:
-					// ??
-				case govtypes.OptionAbstain:
-					// ??
-				case govtypes.OptionNoWithVeto:
-					// ??
-				}
-				balance = balance.Add(subPower)
+		if len(a.Vote.Options) > 0 {
+			// Direct vote
+			balance = applyVoteOptions(a.Vote, a.StakedAmount)
+		} else {
+			// Inherited votes
+			for _, deleg := range a.Delegations {
+				balance = balance.Add(applyVoteOptions(deleg.Vote, deleg.Amount))
 			}
 		}
 		balances = append(balances, banktypes.Balance{

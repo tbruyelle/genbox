@@ -11,7 +11,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-func TestGetAccountVotes(t *testing.T) {
+func TestGetAccounts(t *testing.T) {
 	var (
 		accAddrs = createAccountAddrs(2)
 		accAddr1 = accAddrs[0].String()
@@ -48,17 +48,23 @@ func TestGetAccountVotes(t *testing.T) {
 				Weight: sdk.NewDec(1),
 			}},
 		}
+		voteAbstain = govtypes.Vote{
+			Options: []govtypes.WeightedVoteOption{{
+				Option: govtypes.OptionAbstain,
+				Weight: sdk.NewDec(1),
+			}},
+		}
 	)
 	tests := []struct {
-		name                 string
-		delegsByAddr         map[string][]stakingtypes.Delegation
-		votesByAddr          map[string]govtypes.Vote
-		valsByAddr           map[string]govtypes.ValidatorGovInfo
-		expectedAccountVotes []AccountVote
+		name             string
+		delegsByAddr     map[string][]stakingtypes.Delegation
+		votesByAddr      map[string]govtypes.Vote
+		valsByAddr       map[string]govtypes.ValidatorGovInfo
+		expectedAccounts []Account
 	}{
 		{
-			name:                 "no delegation",
-			expectedAccountVotes: []AccountVote{},
+			name:             "no delegation",
+			expectedAccounts: []Account{},
 		},
 		{
 			name: "one delegation: inactive validator",
@@ -71,7 +77,13 @@ func TestGetAccountVotes(t *testing.T) {
 					},
 				},
 			},
-			expectedAccountVotes: []AccountVote{},
+			expectedAccounts: []Account{
+				{
+					Address:      accAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.ZeroDec(),
+				},
+			},
 		},
 		{
 			name: "one delegation: nobody voted",
@@ -87,21 +99,20 @@ func TestGetAccountVotes(t *testing.T) {
 			valsByAddr: map[string]govtypes.ValidatorGovInfo{
 				valAddr1: val1,
 			},
-			expectedAccountVotes: []AccountVote{
+			expectedAccounts: []Account{
 				{
-					Address:    accAddr1,
-					TotalPower: sdk.NewDec(1000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(1000),
-						Inherited: true,
+					Address:      accAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000),
+					Delegations: []Delegation{{
+						ValidatorAddress: valAddr1,
+						Amount:           sdk.NewDec(1000),
 					}},
 				},
 				{
-					Address:    valAccAddr1,
-					TotalPower: sdk.NewDec(1000000 - 1000),
-					PoweredVotes: []PoweredVote{{
-						Power: sdk.NewDec(1000000 - 1000),
-					}},
+					Address:      valAccAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000000 - 1000),
 				},
 			},
 		},
@@ -122,24 +133,22 @@ func TestGetAccountVotes(t *testing.T) {
 			votesByAddr: map[string]govtypes.Vote{
 				valAccAddr1: voteNo,
 			},
-			expectedAccountVotes: []AccountVote{
+			expectedAccounts: []Account{
 				{
-					Address:    accAddr1,
-					TotalPower: sdk.NewDec(1000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(1000),
-						Vote:      voteNo,
-						Inherited: true,
+					Address:      accAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000),
+					Delegations: []Delegation{{
+						ValidatorAddress: valAddr1,
+						Amount:           sdk.NewDec(1000),
+						Vote:             voteNo,
 					}},
 				},
 				{
-					Address:    valAccAddr1,
-					TotalPower: sdk.NewDec(1000000 - 1000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(1000000 - 1000),
-						Vote:      voteNo,
-						Inherited: false,
-					}},
+					Address:      valAccAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000000 - 1000),
+					Vote:         voteNo,
 				},
 			},
 		},
@@ -161,24 +170,23 @@ func TestGetAccountVotes(t *testing.T) {
 				valAccAddr1: voteNo,
 				accAddr1:    voteYes,
 			},
-			expectedAccountVotes: []AccountVote{
+			expectedAccounts: []Account{
 				{
-					Address:    accAddr1,
-					TotalPower: sdk.NewDec(1000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(1000),
-						Vote:      voteYes,
-						Inherited: false,
+					Address:      accAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000),
+					Vote:         voteYes,
+					Delegations: []Delegation{{
+						ValidatorAddress: valAddr1,
+						Amount:           sdk.NewDec(1000),
+						Vote:             voteNo,
 					}},
 				},
 				{
-					Address:    valAccAddr1,
-					TotalPower: sdk.NewDec(1000000 - 1000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(1000000 - 1000),
-						Vote:      voteNo,
-						Inherited: false,
-					}},
+					Address:      valAccAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000000 - 1000),
+					Vote:         voteNo,
 				},
 			},
 		},
@@ -206,40 +214,35 @@ func TestGetAccountVotes(t *testing.T) {
 				valAccAddr1: voteNo,
 				valAccAddr2: voteYes,
 			},
-			expectedAccountVotes: []AccountVote{
+			expectedAccounts: []Account{
 				{
-					Address:    accAddr1,
-					TotalPower: sdk.NewDec(3000),
-					PoweredVotes: []PoweredVote{
+					Address:      accAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(3000),
+					Delegations: []Delegation{
 						{
-							Power:     sdk.NewDec(1000),
-							Vote:      voteNo,
-							Inherited: true,
+							ValidatorAddress: valAddr1,
+							Amount:           sdk.NewDec(1000),
+							Vote:             voteNo,
 						},
 						{
-							Power:     sdk.NewDec(2000),
-							Vote:      voteYes,
-							Inherited: true,
+							ValidatorAddress: valAddr2,
+							Amount:           sdk.NewDec(2000),
+							Vote:             voteYes,
 						},
 					},
 				},
 				{
-					Address:    valAccAddr1,
-					TotalPower: sdk.NewDec(1000000 - 1000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(1000000 - 1000),
-						Vote:      voteNo,
-						Inherited: false,
-					}},
+					Address:      valAccAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000000 - 1000),
+					Vote:         voteNo,
 				},
 				{
-					Address:    valAccAddr2,
-					TotalPower: sdk.NewDec(2000000 - 2000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(2000000 - 2000),
-						Vote:      voteYes,
-						Inherited: false,
-					}},
+					Address:      valAccAddr2,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(2000000 - 2000),
+					Vote:         voteYes,
 				},
 			},
 		},
@@ -264,48 +267,49 @@ func TestGetAccountVotes(t *testing.T) {
 				valAddr2: val2,
 			},
 			votesByAddr: map[string]govtypes.Vote{
-				accAddr1:    voteNo,
+				accAddr1:    voteAbstain,
 				valAccAddr1: voteNo,
 				valAccAddr2: voteYes,
 			},
-			expectedAccountVotes: []AccountVote{
+			expectedAccounts: []Account{
 				{
-					Address:    accAddr1,
-					TotalPower: sdk.NewDec(3000),
-					PoweredVotes: []PoweredVote{
+					Address:      accAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(3000),
+					Vote:         voteAbstain,
+					Delegations: []Delegation{
 						{
-							Power:     sdk.NewDec(3000),
-							Vote:      voteNo,
-							Inherited: false,
+							ValidatorAddress: valAddr1,
+							Amount:           sdk.NewDec(1000),
+							Vote:             voteNo,
+						},
+						{
+							ValidatorAddress: valAddr2,
+							Amount:           sdk.NewDec(2000),
+							Vote:             voteYes,
 						},
 					},
 				},
 				{
-					Address:    valAccAddr1,
-					TotalPower: sdk.NewDec(1000000 - 1000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(1000000 - 1000),
-						Vote:      voteNo,
-						Inherited: false,
-					}},
+					Address:      valAccAddr1,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(1000000 - 1000),
+					Vote:         voteNo,
 				},
 				{
-					Address:    valAccAddr2,
-					TotalPower: sdk.NewDec(2000000 - 2000),
-					PoweredVotes: []PoweredVote{{
-						Power:     sdk.NewDec(2000000 - 2000),
-						Vote:      voteYes,
-						Inherited: false,
-					}},
+					Address:      valAccAddr2,
+					LiquidAmount: sdk.ZeroDec(),
+					StakedAmount: sdk.NewDec(2000000 - 2000),
+					Vote:         voteYes,
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			balances := getAccountVotes(tt.delegsByAddr, tt.votesByAddr, tt.valsByAddr)
+			accounts := getAccounts(tt.delegsByAddr, tt.votesByAddr, tt.valsByAddr)
 
-			assert.ElementsMatch(t, tt.expectedAccountVotes, balances)
+			assert.Equal(t, tt.expectedAccounts, accounts)
 		})
 	}
 }

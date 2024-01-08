@@ -6,36 +6,36 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// TODO add liquid balance?
-type AccountVote struct {
+type Account struct {
 	Address      string
-	TotalPower   sdk.Dec       // TODO use for check TODO Rename
-	PoweredVotes []PoweredVote // TODO consider DirectVote and IndirectVotes field?
+	LiquidAmount sdk.Dec // TODO fill with bank balances
+	StakedAmount sdk.Dec // TODO compare with sum of delegations?
+	Vote         govtypes.Vote
+	Delegations  []Delegation
 }
 
-type PoweredVote struct {
-	Power     sdk.Dec // TODO Rename to Delegation since it can be filled without votes
-	Vote      govtypes.Vote
-	Inherited bool
+type Delegation struct {
+	Amount           sdk.Dec
+	ValidatorAddress string
+	Vote             govtypes.Vote
 }
 
-// getAccountVotes returns the list of all account with their vote and
+// getAccounts returns the list of all account with their vote and
 // power, from direct or indirect votes.
-func getAccountVotes(
+func getAccounts(
 	delegsByAddr map[string][]stakingtypes.Delegation,
 	votesByAddr map[string]govtypes.Vote,
 	valsByAddr map[string]govtypes.ValidatorGovInfo,
-) []AccountVote {
+) []Account {
 	// TODO write test and refac
-	accountVotes := []AccountVote{}
+	accounts := []Account{}
 	for addr, delegs := range delegsByAddr {
-		accountVote := AccountVote{
-			Address:    addr,
-			TotalPower: sdk.ZeroDec(),
+		account := Account{
+			Address:      addr,
+			LiquidAmount: sdk.ZeroDec(),
+			StakedAmount: sdk.ZeroDec(),
+			Vote:         votesByAddr[addr],
 		}
-		// Did this address vote ?
-		directVote, hasVoted := votesByAddr[addr]
-		// TODO check if it's a validator (and validator can have delegation!)
 		for _, deleg := range delegs {
 			// Find validator
 			val, ok := valsByAddr[deleg.ValidatorAddress]
@@ -51,29 +51,16 @@ func getAccountVotes(
 
 			// Compute delegation voting power
 			delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
-			accountVote.TotalPower = accountVote.TotalPower.Add(delegVotingPower)
+			account.StakedAmount = account.StakedAmount.Add(delegVotingPower)
 
-			if !hasVoted {
-				// addr hasn't voted: inherit validator vote
-				validatorVote := findValidatorVote(deleg.ValidatorAddress, votesByAddr)
-				accountVote.PoweredVotes = append(accountVote.PoweredVotes, PoweredVote{
-					Power:     delegVotingPower,
-					Vote:      validatorVote, // if validator hasn't voted this will be empty
-					Inherited: true,
-				})
-			}
-		}
-		if hasVoted {
-			// Add the direct vote
-			accountVote.PoweredVotes = append(accountVote.PoweredVotes, PoweredVote{
-				Power:     accountVote.TotalPower,
-				Vote:      directVote,
-				Inherited: false,
+			// Populate delegations with validator votes
+			account.Delegations = append(account.Delegations, Delegation{
+				ValidatorAddress: val.Address.String(),
+				Amount:           delegVotingPower,
+				Vote:             findValidatorVote(deleg.ValidatorAddress, votesByAddr),
 			})
 		}
-		if !accountVote.TotalPower.IsZero() {
-			accountVotes = append(accountVotes, accountVote)
-		}
+		accounts = append(accounts, account)
 	}
 	// Add validator accounts
 	for _, val := range valsByAddr {
@@ -84,16 +71,15 @@ func getAccountVotes(
 
 		// TODO add a AccAddress field in the struct used in valsByAddr?
 		valAccAddr := sdk.AccAddress(val.Address.Bytes()) // TODO ensure this is a correct way to derive account address
-		accountVotes = append(accountVotes, AccountVote{
-			Address:    valAccAddr.String(),
-			TotalPower: votingPower,
-			PoweredVotes: []PoweredVote{{
-				Power: votingPower,
-				Vote:  vote,
-			}},
+		// TODO if validator has delegations, he's already in accounts: handle that!
+		accounts = append(accounts, Account{
+			Address:      valAccAddr.String(),
+			LiquidAmount: sdk.ZeroDec(),
+			StakedAmount: votingPower,
+			Vote:         vote,
 		})
 	}
-	return accountVotes
+	return accounts
 }
 
 // TODO use a struct to hold xxxByAddr maps?
