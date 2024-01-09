@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -9,7 +11,7 @@ import (
 type Account struct {
 	Address      string
 	LiquidAmount sdk.Dec // TODO fill with bank balances
-	StakedAmount sdk.Dec // TODO compare with sum of delegations?
+	StakedAmount sdk.Dec
 	Vote         govtypes.WeightedVoteOptions
 	Delegations  []Delegation
 }
@@ -43,11 +45,6 @@ func getAccounts(
 				// Validator isn't in active set or jailed, ignore
 				continue
 			}
-			// Deduct voter power from validator delegation power, because in the
-			// following loop on validator we want to compute the validator self
-			// delegation.
-			val.DelegatorDeductions = val.DelegatorDeductions.Add(deleg.GetShares())
-			valsByAddr[deleg.ValidatorAddress] = val
 
 			// Compute delegation voting power
 			delegVotingPower := deleg.GetShares().MulInt(val.BondedTokens).Quo(val.DelegatorShares)
@@ -62,21 +59,16 @@ func getAccounts(
 		}
 		accounts = append(accounts, account)
 	}
-	// Add validator accounts
-	for _, val := range valsByAddr {
-		// Compute self delegation
-		sharesAfterDeductions := val.DelegatorShares.Sub(val.DelegatorDeductions)
-		votingPower := sharesAfterDeductions.MulInt(val.BondedTokens).Quo(val.DelegatorShares)
 
-		// TODO add a AccAddress field in the struct used in valsByAddr?
-		valAccAddr := sdk.AccAddress(val.Address.Bytes())
-		// TODO if validator has delegations, he's already in accounts: handle that!
-		accounts = append(accounts, Account{
-			Address:      valAccAddr.String(),
-			LiquidAmount: sdk.ZeroDec(),
-			StakedAmount: votingPower,
-			Vote:         val.Vote,
-		})
+	// TODO check for sanity, remove later
+	for _, a := range accounts {
+		staked := sdk.ZeroDec()
+		for _, d := range a.Delegations {
+			staked = staked.Add(d.Amount)
+		}
+		if !staked.Equal(a.StakedAmount) {
+			panic(fmt.Sprintf("NOPE %v %v", staked, a.StakedAmount))
+		}
 	}
 	return accounts
 }
