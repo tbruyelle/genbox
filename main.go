@@ -42,6 +42,12 @@ func main() {
 	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
 		h.Comma(int64(len(delegsByAddr))))
 
+	balancesByAddr, err := parseBalancesByAddr(datapath, "uatom")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s account balances\n", h.Comma(int64(len(balancesByAddr))))
+
 	switch command {
 	case "tally":
 		results, totalVotingPower := tally(votesByAddr, valsByAddr, delegsByAddr)

@@ -10,6 +10,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -116,4 +117,34 @@ func parseProp(path string) govtypes.Proposal {
 		panic(err)
 	}
 	return prop
+}
+
+func parseBalancesByAddr(path, denom string) (map[string]sdk.Coin, error) {
+	f, err := os.Open(filepath.Join(path, "balances.json"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	// XXX workaround to unmarshal validators because proto doesn't support top-level array
+	dec := json.NewDecoder(f)
+	_, err = dec.Token()
+	if err != nil {
+		return nil, err
+	}
+	balancesByAddr := make(map[string]sdk.Coin)
+	for dec.More() {
+		var balance banktypes.Balance
+		err := unmarshaler.UnmarshalNext(dec, &balance)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range balance.Coins {
+			// Consider only denom passed by parameter
+			if c.Denom == denom {
+				balancesByAddr[balance.Address] = c
+				break
+			}
+		}
+	}
+	return balancesByAddr, nil
 }
