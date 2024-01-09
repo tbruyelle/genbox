@@ -125,23 +125,17 @@ func parseBalancesByAddr(path, denom string) (map[string]sdk.Coin, error) {
 		return nil, err
 	}
 	defer f.Close()
-	// XXX workaround to unmarshal validators because proto doesn't support top-level array
-	dec := json.NewDecoder(f)
-	_, err = dec.Token()
+	var balances []banktypes.Balance
+	err = json.NewDecoder(f).Decode(&balances)
 	if err != nil {
 		return nil, err
 	}
 	balancesByAddr := make(map[string]sdk.Coin)
-	for dec.More() {
-		var balance banktypes.Balance
-		err := unmarshaler.UnmarshalNext(dec, &balance)
-		if err != nil {
-			return nil, err
-		}
-		for _, c := range balance.Coins {
-			// Consider only denom passed by parameter
+	for _, b := range balances {
+		for _, c := range b.Coins {
+			// Filter denom
 			if c.Denom == denom {
-				balancesByAddr[balance.Address] = c
+				balancesByAddr[b.Address] = c
 				break
 			}
 		}
