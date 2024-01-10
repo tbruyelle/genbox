@@ -55,7 +55,7 @@ func main() {
 		printTallyResults(results, totalVotingPower, parseProp(datapath))
 
 	case "genesis":
-		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr)
+		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr)
 
 		// Write bank genesis
 		err = writeBankGenesis(accounts)

@@ -56,6 +56,13 @@ func TestGetAccounts(t *testing.T) {
 			Option: govtypes.OptionAbstain,
 			Weight: sdk.NewDec(1),
 		}}
+		// Some initial balances
+		balancesByAddr = map[string]sdk.Coin{
+			accAddr1:       sdk.NewInt64Coin("uatom", 100),
+			accAddr2:       sdk.NewInt64Coin("uatom", 200),
+			valAccAddr1Str: sdk.NewInt64Coin("uatom", 300),
+			valAccAddr2Str: sdk.NewInt64Coin("uatom", 400),
+		}
 	)
 	tests := []struct {
 		name             string
@@ -65,8 +72,29 @@ func TestGetAccounts(t *testing.T) {
 		expectedAccounts []Account
 	}{
 		{
-			name:             "no delegation",
-			expectedAccounts: []Account{},
+			name: "no delegation",
+			expectedAccounts: []Account{
+				{
+					Address:      accAddr1,
+					LiquidAmount: sdk.NewDec(100),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr1Str,
+					LiquidAmount: sdk.NewDec(300),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr2Str,
+					LiquidAmount: sdk.NewDec(400),
+					StakedAmount: sdk.ZeroDec(),
+				},
+			},
 		},
 		{
 			name: "one delegation: inactive validator",
@@ -78,7 +106,22 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr1Str,
+					LiquidAmount: sdk.NewDec(300),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr2Str,
+					LiquidAmount: sdk.NewDec(400),
 					StakedAmount: sdk.ZeroDec(),
 				},
 			},
@@ -99,7 +142,7 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
 					StakedAmount: sdk.NewDec(1000),
 					Delegations: []Delegation{{
 						ValidatorAddress: valAddr1Str,
@@ -108,12 +151,22 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr1Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(300),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Delegations: []Delegation{{
 						ValidatorAddress: valAddr1Str,
 						Amount:           sdk.NewDec(1000000 - 1000),
 					}},
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr2Str,
+					LiquidAmount: sdk.NewDec(400),
+					StakedAmount: sdk.ZeroDec(),
 				},
 			},
 		},
@@ -136,7 +189,7 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
 					StakedAmount: sdk.NewDec(1000),
 					Delegations: []Delegation{{
 						ValidatorAddress: valAddr1Str,
@@ -146,7 +199,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr1Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(300),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
 					Delegations: []Delegation{{
@@ -154,6 +207,16 @@ func TestGetAccounts(t *testing.T) {
 						Amount:           sdk.NewDec(1000000 - 1000),
 						Vote:             voteNo,
 					}},
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr2Str,
+					LiquidAmount: sdk.NewDec(400),
+					StakedAmount: sdk.ZeroDec(),
 				},
 			},
 		},
@@ -173,13 +236,28 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
 					StakedAmount: sdk.NewDec(1000),
 					Delegations: []Delegation{{
 						ValidatorAddress: valAddr1Str,
 						Amount:           sdk.NewDec(1000),
 						Vote:             voteNo,
 					}},
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr1Str,
+					LiquidAmount: sdk.NewDec(300),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr2Str,
+					LiquidAmount: sdk.NewDec(400),
+					StakedAmount: sdk.ZeroDec(),
 				},
 			},
 		},
@@ -203,7 +281,7 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
 					StakedAmount: sdk.NewDec(1000),
 					Vote:         voteYes,
 					Delegations: []Delegation{{
@@ -214,7 +292,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr1Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(300),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
 					Delegations: []Delegation{{
@@ -222,6 +300,16 @@ func TestGetAccounts(t *testing.T) {
 						Amount:           sdk.NewDec(1000000 - 1000),
 						Vote:             voteNo,
 					}},
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
+				},
+				{
+					Address:      valAccAddr2Str,
+					LiquidAmount: sdk.NewDec(400),
+					StakedAmount: sdk.ZeroDec(),
 				},
 			},
 		},
@@ -250,7 +338,7 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
 					StakedAmount: sdk.NewDec(3000),
 					Delegations: []Delegation{
 						{
@@ -267,7 +355,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr1Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(300),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
 					Delegations: []Delegation{{
@@ -278,7 +366,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr2Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(400),
 					StakedAmount: sdk.NewDec(2000000 - 2000),
 					Vote:         voteYes,
 					Delegations: []Delegation{{
@@ -286,6 +374,11 @@ func TestGetAccounts(t *testing.T) {
 						Amount:           sdk.NewDec(2000000 - 2000),
 						Vote:             voteYes,
 					}},
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
 				},
 			},
 		},
@@ -315,7 +408,7 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
 					StakedAmount: sdk.NewDec(3000),
 					Vote:         voteAbstain,
 					Delegations: []Delegation{
@@ -333,7 +426,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr1Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(300),
 					StakedAmount: sdk.NewDec(1000000 - 1000),
 					Vote:         voteNo,
 					Delegations: []Delegation{{
@@ -344,7 +437,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr2Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(400),
 					StakedAmount: sdk.NewDec(2000000 - 2000),
 					Vote:         voteYes,
 					Delegations: []Delegation{{
@@ -352,6 +445,11 @@ func TestGetAccounts(t *testing.T) {
 						Amount:           sdk.NewDec(2000000 - 2000),
 						Vote:             voteYes,
 					}},
+				},
+				{
+					Address:      accAddr2,
+					LiquidAmount: sdk.NewDec(200),
+					StakedAmount: sdk.ZeroDec(),
 				},
 			},
 		},
@@ -383,7 +481,7 @@ func TestGetAccounts(t *testing.T) {
 			expectedAccounts: []Account{
 				{
 					Address:      accAddr1,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(100),
 					StakedAmount: sdk.NewDec(1000 + 2000),
 					Vote:         voteAbstain,
 					Delegations: []Delegation{
@@ -401,7 +499,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      accAddr2,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(200),
 					StakedAmount: sdk.NewDec(3000 + 4000),
 					Delegations: []Delegation{
 						{
@@ -418,7 +516,7 @@ func TestGetAccounts(t *testing.T) {
 				},
 				{
 					Address:      valAccAddr1Str,
-					LiquidAmount: sdk.ZeroDec(),
+					LiquidAmount: sdk.NewDec(300),
 					StakedAmount: sdk.NewDec(1000000 - 1000 - 3000),
 					Vote:         voteNo,
 					Delegations: []Delegation{{
@@ -427,12 +525,17 @@ func TestGetAccounts(t *testing.T) {
 						Vote:             voteNo,
 					}},
 				},
+				{
+					Address:      valAccAddr2Str,
+					LiquidAmount: sdk.NewDec(400),
+					StakedAmount: sdk.ZeroDec(),
+				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			accounts := getAccounts(tt.delegsByAddr, tt.votesByAddr, tt.valsByAddr)
+			accounts := getAccounts(tt.delegsByAddr, tt.votesByAddr, tt.valsByAddr, balancesByAddr)
 
 			if !assert.ElementsMatch(t, tt.expectedAccounts, accounts) {
 				// Invoked assert.Equal because it has a more readable output

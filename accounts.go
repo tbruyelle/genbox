@@ -28,9 +28,10 @@ func getAccounts(
 	delegsByAddr map[string][]stakingtypes.Delegation,
 	votesByAddr map[string]govtypes.WeightedVoteOptions,
 	valsByAddr map[string]govtypes.ValidatorGovInfo,
+	balancesByAddr map[string]sdk.Coin,
 ) []Account {
-	// TODO write test and refac
-	accounts := []Account{}
+	accountsByAddr := make(map[string]Account, len(delegsByAddr))
+	// Feed delegations
 	for addr, delegs := range delegsByAddr {
 		account := Account{
 			Address:      addr,
@@ -57,7 +58,26 @@ func getAccounts(
 				Vote:             val.Vote,
 			})
 		}
-		accounts = append(accounts, account)
+		accountsByAddr[addr] = account
+	}
+	// Feed balances
+	for addr, balance := range balancesByAddr {
+		acc, ok := accountsByAddr[addr]
+		if ok {
+			acc.LiquidAmount = balance.Amount.ToDec()
+			accountsByAddr[addr] = acc
+		} else {
+			accountsByAddr[addr] = Account{
+				Address:      addr,
+				LiquidAmount: balance.Amount.ToDec(),
+				StakedAmount: sdk.ZeroDec(),
+			}
+		}
+	}
+	// Map to slice
+	var accounts []Account
+	for _, a := range accountsByAddr {
+		accounts = append(accounts, a)
 	}
 
 	// TODO check for sanity, remove later
@@ -66,7 +86,7 @@ func getAccounts(
 		for _, d := range a.Delegations {
 			staked = staked.Add(d.Amount)
 		}
-		if !staked.Equal(a.StakedAmount) {
+		if !staked.IsZero() && !staked.Equal(a.StakedAmount) {
 			panic(fmt.Sprintf("NOPE %v %v", staked, a.StakedAmount))
 		}
 	}
