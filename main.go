@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -56,6 +57,14 @@ func main() {
 
 	case "genesis":
 		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr)
+
+		bz, err := json.MarshalIndent(accounts, "", "  ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile("accounts.json", bz, 0o666); err != nil {
+			panic(err)
+		}
 
 		// Write bank genesis
 		err = writeBankGenesis(accounts)
