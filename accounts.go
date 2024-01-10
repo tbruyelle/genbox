@@ -10,7 +10,7 @@ import (
 
 type Account struct {
 	Address      string
-	LiquidAmount sdk.Dec // TODO fill with bank balances
+	LiquidAmount sdk.Dec
 	StakedAmount sdk.Dec
 	Vote         govtypes.WeightedVoteOptions
 	Delegations  []Delegation
@@ -78,10 +78,8 @@ func getAccounts(
 	var accounts []Account
 	for _, a := range accountsByAddr {
 		accounts = append(accounts, a)
-	}
 
-	// TODO check for sanity, remove later
-	for _, a := range accounts {
+		// TODO check for sanity, remove later
 		staked := sdk.ZeroDec()
 		for _, d := range a.Delegations {
 			staked = staked.Add(d.Amount)
