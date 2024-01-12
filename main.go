@@ -8,20 +8,28 @@ import (
 	h "github.com/dustin/go-humanize"
 )
 
-const ticker = "govno"
-
 func main() {
-	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "genesis") {
-		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|genesis] [datapath]\n", os.Args[0])
+	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "accounts" && os.Args[1] != "genesis") {
+		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|accounts|genesis] [datapath]\n", os.Args[0])
 		os.Exit(1)
 	}
-	//-----------------------------------------
-	// Read data from files
 
 	var (
 		command  = os.Args[1]
 		datapath = os.Args[2]
 	)
+
+	if command == "genesis" {
+		err := writeBankGenesis()
+		if err != nil {
+			panic(err)
+		}
+		os.Exit(0)
+	}
+
+	//-----------------------------------------
+	// Read data from files
+
 	votesByAddr, err := parseVotesByAddr(datapath)
 	if err != nil {
 		panic(err)
@@ -55,7 +63,7 @@ func main() {
 		// Optionnaly print and compare tally with prop data
 		printTallyResults(results, totalVotingPower, parseProp(datapath))
 
-	case "genesis":
+	case "accounts":
 		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr)
 
 		bz, err := json.MarshalIndent(accounts, "", "  ")
@@ -63,12 +71,6 @@ func main() {
 			panic(err)
 		}
 		if err := os.WriteFile("accounts.json", bz, 0o666); err != nil {
-			panic(err)
-		}
-
-		// Write bank genesis
-		err = writeBankGenesis(accounts)
-		if err != nil {
 			panic(err)
 		}
 	}
