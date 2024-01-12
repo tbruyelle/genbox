@@ -32,16 +32,15 @@ func applyVoteOptions(vote govtypes.WeightedVoteOptions, amount sdk.Dec) sdk.Dec
 }
 
 // TODO add tests
-func writeBankGenesis() error {
-	accountsFile := os.Args[2]
-	f, err := os.Open(accountsFile)
+func writeBankGenesis(src, dest string) error {
+	f, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("cannot read %s file, run `%s accounts` to generate it: %w", accountsFile, os.Args[0], err)
+		return fmt.Errorf("cannot read %s file, run `%s accounts` to generate it: %w", src, os.Args[0], err)
 	}
 	defer f.Close()
 	var accounts []Account
 	if err := json.NewDecoder(f).Decode(&accounts); err != nil {
-		return fmt.Errorf("cannot json decode accounts from file %s: %w", accountsFile, err)
+		return fmt.Errorf("cannot json decode accounts from file %s: %w", src, err)
 	}
 
 	const ticker = "govno"
@@ -95,5 +94,5 @@ func writeBankGenesis() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile("bank.genesis", bz, 0o666)
+	return os.WriteFile(dest, bz, 0o666)
 }

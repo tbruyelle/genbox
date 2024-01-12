@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	h "github.com/dustin/go-humanize"
 )
@@ -15,15 +16,17 @@ func main() {
 	}
 
 	var (
-		command  = os.Args[1]
-		datapath = os.Args[2]
+		command         = os.Args[1]
+		datapath        = os.Args[2]
+		accountsFile    = filepath.Join(datapath, "accounts.json")
+		bankGenesisFile = filepath.Join(datapath, "bank.genesis")
 	)
 
 	if command == "genesis" {
-		err := writeBankGenesis()
-		if err != nil {
+		if err := writeBankGenesis(accountsFile, bankGenesisFile); err != nil {
 			panic(err)
 		}
+		fmt.Printf("%s file created.\n", bankGenesisFile)
 		os.Exit(0)
 	}
 
@@ -70,8 +73,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if err := os.WriteFile("accounts.json", bz, 0o666); err != nil {
+		if err := os.WriteFile(accountsFile, bz, 0o666); err != nil {
 			panic(err)
 		}
+		fmt.Printf("%s file created.\n", accountsFile)
 	}
 }
