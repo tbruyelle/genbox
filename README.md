@@ -107,3 +107,14 @@ Now we have only the active validators.
 This procedures follows the code of the [`staking.Keeper.IterateBondedValidatorsByPower()`][code-validators]
 function, which is used in the [`x/gov.Keeper.Tally()`][code-tally] function.
 
+#### Get proposal
+
+```sh
+jq '.app_state.gov.proposals[] | select(.proposal_id == "82") '  snapshot.json > prop.json
+```
+
+### Get balances
+
+```sh
+jq '.app_state.bank.balances' snapshot.json > balances.json
+```
