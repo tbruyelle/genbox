@@ -74,7 +74,7 @@ $ jq '. += [{
 
 If the final votes have duplicates, because the user have voted more than one 
 time, we need to eliminate the first votes and keep only the last ones (maybe
-this is something that should be hanlded in the code).
+this is something that should be handled in the code).
 
 #### Get all delegations
 
@@ -107,7 +107,9 @@ Now we have only the active validators.
 This procedures follows the code of the [`staking.Keeper.IterateBondedValidatorsByPower()`][code-validators]
 function, which is used in the [`x/gov.Keeper.Tally()`][code-tally] function.
 
-#### Get proposal
+### Get proposal
+
+The proposal is only used to verify the data.
 
 ```sh
 jq '.app_state.gov.proposals[] | select(.proposal_id == "82") '  snapshot.json > prop.json
