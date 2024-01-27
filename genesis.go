@@ -43,7 +43,7 @@ func writeBankGenesis(src, dest string) error {
 		return fmt.Errorf("cannot json decode accounts from file %s: %w", src, err)
 	}
 
-	const ticker = "govno"
+	const ticker = "govgen"
 	var balances []banktypes.Balance
 	for _, a := range accounts {
 		balance := sdk.ZeroDec()
@@ -67,7 +67,7 @@ func writeBankGenesis(src, dest string) error {
 				Display:     ticker,
 				Symbol:      strings.ToUpper(ticker),
 				Base:        "u" + ticker,
-				Name:        "Atom One Govno",
+				Name:        "Atom One Govgen",
 				Description: "The governance token of Atom One Hub",
 				DenomUnits: []*banktypes.DenomUnit{
 					{
