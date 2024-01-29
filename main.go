@@ -33,6 +33,12 @@ func main() {
 	//-----------------------------------------
 	// Read data from files
 
+	accountsByAddr, err := parseAccounts(datapath)
+	if err != nil {
+		panic(err)
+	}
+	_ = accountsByAddr
+
 	votesByAddr, err := parseVotesByAddr(datapath)
 	if err != nil {
 		panic(err)

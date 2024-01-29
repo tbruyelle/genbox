@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,21 +11,56 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	icatypes "github.com/cosmos/ibc-go/v4/modules/apps/27-interchain-accounts/types"
 )
 
-var unmarshaler jsonpb.Unmarshaler
+var (
+	registry    = codectypes.NewInterfaceRegistry()
+	unmarshaler jsonpb.Unmarshaler
+)
 
 func init() {
-	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
 	govtypes.RegisterInterfaces(registry)
 	sdk.RegisterInterfaces(registry)
 	proposaltypes.RegisterInterfaces(registry)
+	authtypes.RegisterInterfaces(registry)
+	vestingtypes.RegisterInterfaces(registry)
+	icatypes.RegisterInterfaces(registry)
 	unmarshaler = jsonpb.Unmarshaler{AnyResolver: registry}
+}
+
+func parseAccounts(path string) (map[string]authtypes.AccountI, error) {
+	f, err := os.Open(filepath.Join(path, "auth_genesis.json"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var genesis authtypes.GenesisState
+	err = unmarshaler.Unmarshal(f, &genesis)
+	if err != nil {
+		return nil, err
+	}
+	actypes := make(map[string]int)
+	for _, acc := range genesis.Accounts {
+		actypes[acc.GetTypeUrl()]++
+	}
+	fmt.Println("TYPES", actypes)
+	accounts, err := authtypes.UnpackAccounts(genesis.Accounts)
+	if err != nil {
+		return nil, err
+	}
+	accountsByAddr := make(map[string]authtypes.AccountI)
+	for _, acc := range accounts {
+		accountsByAddr[acc.GetAddress().String()] = acc
+	}
+	return accountsByAddr, nil
 }
 
 func parseVotesByAddr(path string) (map[string]govtypes.WeightedVoteOptions, error) {
