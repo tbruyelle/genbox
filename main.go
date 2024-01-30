@@ -33,11 +33,6 @@ func main() {
 	//-----------------------------------------
 	// Read data from files
 
-	accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s accounts\n", h.Comma(int64(len(accountTypesByAddr))))
 	votesByAddr, err := parseVotesByAddr(datapath)
 	if err != nil {
 		panic(err)
@@ -58,7 +53,11 @@ func main() {
 	}
 	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
 		h.Comma(int64(len(delegsByAddr))))
-
+	accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s accounts\n", h.Comma(int64(len(accountTypesByAddr))))
 	balancesByAddr, err := parseBalancesByAddr(datapath, "uatom")
 	if err != nil {
 		panic(err)

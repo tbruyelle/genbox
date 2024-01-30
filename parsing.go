@@ -47,6 +47,7 @@ func parseAccountTypesPerAddr(path string) (map[string]string, error) {
 		return nil, err
 	}
 	accountTypesPerAddr := make(map[string]string)
+	// Fill types.Any cached field.
 	err = genesis.UnpackInterfaces(registry)
 	if err != nil {
 		return nil, err
