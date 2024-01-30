@@ -33,12 +33,11 @@ func main() {
 	//-----------------------------------------
 	// Read data from files
 
-	accountsByAddr, err := parseAccounts(datapath)
+	accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
 	if err != nil {
 		panic(err)
 	}
-	_ = accountsByAddr
-
+	fmt.Printf("%s accounts\n", h.Comma(int64(len(accountTypesByAddr))))
 	votesByAddr, err := parseVotesByAddr(datapath)
 	if err != nil {
 		panic(err)
@@ -73,7 +72,7 @@ func main() {
 		printTallyResults(results, totalVotingPower, parseProp(datapath))
 
 	case "accounts":
-		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr)
+		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr, accountTypesByAddr)
 
 		bz, err := json.MarshalIndent(accounts, "", "  ")
 		if err != nil {

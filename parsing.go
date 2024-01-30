@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -36,7 +35,7 @@ func init() {
 	unmarshaler = jsonpb.Unmarshaler{AnyResolver: registry}
 }
 
-func parseAccounts(path string) (map[string]authtypes.AccountI, error) {
+func parseAccountTypesPerAddr(path string) (map[string]string, error) {
 	f, err := os.Open(filepath.Join(path, "auth_genesis.json"))
 	if err != nil {
 		return nil, err
@@ -47,20 +46,16 @@ func parseAccounts(path string) (map[string]authtypes.AccountI, error) {
 	if err != nil {
 		return nil, err
 	}
-	actypes := make(map[string]int)
-	for _, acc := range genesis.Accounts {
-		actypes[acc.GetTypeUrl()]++
-	}
-	fmt.Println("TYPES", actypes)
-	accounts, err := authtypes.UnpackAccounts(genesis.Accounts)
+	accountTypesPerAddr := make(map[string]string)
+	err = genesis.UnpackInterfaces(registry)
 	if err != nil {
 		return nil, err
 	}
-	accountsByAddr := make(map[string]authtypes.AccountI)
-	for _, acc := range accounts {
-		accountsByAddr[acc.GetAddress().String()] = acc
+	for i, any := range genesis.Accounts {
+		acc := any.GetCachedValue().(authtypes.GenesisAccount)
+		accountTypesPerAddr[acc.GetAddress().String()] = genesis.Accounts[i].GetTypeUrl()
 	}
-	return accountsByAddr, nil
+	return accountTypesPerAddr, nil
 }
 
 func parseVotesByAddr(path string) (map[string]govtypes.WeightedVoteOptions, error) {

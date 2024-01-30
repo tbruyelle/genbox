@@ -10,6 +10,7 @@ import (
 
 type Account struct {
 	Address      string
+	Type         string
 	LiquidAmount sdk.Dec
 	StakedAmount sdk.Dec
 	Vote         govtypes.WeightedVoteOptions
@@ -29,12 +30,14 @@ func getAccounts(
 	votesByAddr map[string]govtypes.WeightedVoteOptions,
 	valsByAddr map[string]govtypes.ValidatorGovInfo,
 	balancesByAddr map[string]sdk.Coin,
+	accountTypesPerAddr map[string]string,
 ) []Account {
 	accountsByAddr := make(map[string]Account, len(delegsByAddr))
 	// Feed delegations
 	for addr, delegs := range delegsByAddr {
 		account := Account{
 			Address:      addr,
+			Type:         accountTypesPerAddr[addr],
 			LiquidAmount: sdk.ZeroDec(),
 			StakedAmount: sdk.ZeroDec(),
 			Vote:         votesByAddr[addr],
