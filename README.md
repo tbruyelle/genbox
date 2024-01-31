@@ -120,3 +120,13 @@ jq '.app_state.gov.proposals[] | select(.proposal_id == "82") '  snapshot.json >
 ```sh
 jq '.app_state.bank.balances' snapshot.json > balances.json
 ```
+
+### Get account types
+
+For the `accounts` command only, the auth genesis is required to add the `Type`
+of the account in the `accounts.json` file.
+
+```
+jq '.app_state.auth' snapshot.json > auth_genesis.json
+```
+
