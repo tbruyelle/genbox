@@ -53,11 +53,6 @@ func main() {
 	}
 	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
 		h.Comma(int64(len(delegsByAddr))))
-	accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s accounts\n", h.Comma(int64(len(accountTypesByAddr))))
 	balancesByAddr, err := parseBalancesByAddr(datapath, "uatom")
 	if err != nil {
 		panic(err)
@@ -71,6 +66,12 @@ func main() {
 		printTallyResults(results, totalVotingPower, parseProp(datapath))
 
 	case "accounts":
+		accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("%s accounts\n", h.Comma(int64(len(accountTypesByAddr))))
+
 		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr, accountTypesByAddr)
 
 		bz, err := json.MarshalIndent(accounts, "", "  ")
