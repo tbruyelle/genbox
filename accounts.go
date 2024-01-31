@@ -72,6 +72,7 @@ func getAccounts(
 		} else {
 			accountsByAddr[addr] = Account{
 				Address:      addr,
+				Type:         accountTypesPerAddr[addr],
 				LiquidAmount: balance.Amount.ToDec(),
 				StakedAmount: sdk.ZeroDec(),
 			}
