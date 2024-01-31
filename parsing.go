@@ -47,13 +47,9 @@ func parseAccountTypesPerAddr(path string) (map[string]string, error) {
 		return nil, err
 	}
 	accountTypesPerAddr := make(map[string]string)
-	// Fill types.Any cached field.
-	err = genesis.UnpackInterfaces(registry)
-	if err != nil {
-		return nil, err
-	}
 	for i, any := range genesis.Accounts {
-		acc := any.GetCachedValue().(authtypes.GenesisAccount)
+		var acc authtypes.GenesisAccount
+		registry.UnpackAny(any, &acc)
 		accountTypesPerAddr[acc.GetAddress().String()] = genesis.Accounts[i].GetTypeUrl()
 	}
 	return accountTypesPerAddr, nil
