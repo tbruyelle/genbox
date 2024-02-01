@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -82,15 +80,6 @@ func getAccounts(
 	var accounts []Account
 	for _, a := range accountsByAddr {
 		accounts = append(accounts, a)
-
-		// TODO check for sanity, remove later
-		staked := sdk.ZeroDec()
-		for _, d := range a.Delegations {
-			staked = staked.Add(d.Amount)
-		}
-		if !staked.IsZero() && !staked.Equal(a.StakedAmount) {
-			panic(fmt.Sprintf("NOPE %v %v", staked, a.StakedAmount))
-		}
 	}
 	return accounts
 }
