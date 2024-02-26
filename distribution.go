@@ -48,9 +48,14 @@ func distribution(genesisPath string) error {
 		chatgptAlgo = func(balIdx int, stake sdk.Int) {
 			// to prevent staking multiple times over the same validator
 			// adjust split amount for the whale account
-			splitStake := stakeSplitCondition
-			if stake.GT(stakeSplitCondition.MulRaw(int64(validatorLen))) {
-				splitStake = stake.QuoRaw(int64(validatorLen))
+			splitStake := sdk.NewInt(1)
+			switch {
+			case stake.LT(sdk.NewInt(500_000_000)):
+				splitStake = stake.QuoRaw(5)
+			case stake.LT(sdk.NewInt(10_000_000_000)):
+				splitStake = stake.QuoRaw(10)
+			default:
+				splitStake = stake.QuoRaw(20)
 			}
 
 			for ; stake.GTE(sdk.DefaultPowerReduction); stake = stake.Sub(splitStake) {
@@ -61,6 +66,9 @@ func distribution(genesisPath string) error {
 				stakeds += staked
 				validators[valIdx] += staked
 				stakes[balIdx]++
+				// if balIdx == 0 || balIdx == 663 || balIdx == 1 || balIdx == 662 {
+				// fmt.Println(balIdx, "stake", humani(staked), "valIdx", valIdx)
+				// }
 			}
 		}
 
@@ -114,11 +122,11 @@ func distribution(genesisPath string) error {
 
 		chatgptAlgo(balIdx, stake)
 	}
-	for k, v := range stakes {
-		if v > 1 {
-			fmt.Println("STAKE", k, v)
-		}
-	}
+	// for k, v := range stakes {
+	// if v > 5 {
+	// fmt.Println("STAKE", k, v)
+	// }
+	// }
 	for i := 0; i < validatorLen; i++ {
 		fmt.Println("VAL", i, humani(validators[i]))
 	}
