@@ -1,0 +1,129 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"slices"
+	"sort"
+
+	h "github.com/dustin/go-humanize"
+	tmjson "github.com/tendermint/tendermint/libs/json"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+)
+
+func distribution(genesisPath string) error {
+	bz, err := os.ReadFile(genesisPath)
+	if err != nil {
+		return fmt.Errorf("readfile %s: %w", genesisPath, err)
+	}
+	var genesisState map[string]json.RawMessage
+	if err := tmjson.Unmarshal(bz, &genesisState); err != nil {
+		return fmt.Errorf("tmjson.Unmarshal: %w", err)
+	}
+	var appState map[string]json.RawMessage
+	if err := tmjson.Unmarshal(genesisState["app_state"], &appState); err != nil {
+		return fmt.Errorf("tmjson.Unmarshal appstate: %w", err)
+	}
+	// get all balances
+	var bankGenesisState banktypes.GenesisState
+	err = tmjson.Unmarshal(appState["bank"], &bankGenesisState)
+	if err != nil {
+		return fmt.Errorf("unmarshal auth: %w", err)
+	}
+	var (
+		minTokens           = sdk.NewInt(25_000_000)
+		supply              = sdk.ZeroInt()
+		totalStake          = sdk.ZeroInt()
+		numStakes           = 0
+		validatorLen        = 30
+		validators          = make([]int64, validatorLen)
+		i                   = 0
+		stakeds             int64
+		stakes              = make(map[int]int)
+		stakeSplitCondition = sdk.NewInt(1_000_000_000_000)
+
+		// staking distrib from chatGPT
+		chatgptAlgo = func(balIdx int, stake sdk.Int) {
+			// to prevent staking multiple times over the same validator
+			// adjust split amount for the whale account
+			splitStake := stakeSplitCondition
+			if stake.GT(stakeSplitCondition.MulRaw(int64(validatorLen))) {
+				splitStake = stake.QuoRaw(int64(validatorLen))
+			}
+
+			for ; stake.GTE(sdk.DefaultPowerReduction); stake = stake.Sub(splitStake) {
+				// find validator which has the less stake
+				valIdx := slices.Index(validators, slices.Min(validators))
+
+				staked := sdk.MinInt(stake, splitStake).Int64()
+				stakeds += staked
+				validators[valIdx] += staked
+				stakes[balIdx]++
+			}
+		}
+
+		// staking distrib from terra
+		// https://github.com/terra-money/core/blob/release/v2.0/app/app.go#L841
+		terraAlgo = func(balIdx int, stake sdk.Int) {
+			// to prevent staking multiple times over the same validator
+			// adjust split amount for the whale account
+			splitStake := stakeSplitCondition
+			if stake.GT(stakeSplitCondition.MulRaw(int64(validatorLen))) {
+				splitStake = stake.QuoRaw(int64(validatorLen))
+			}
+			// if a vesting account has more staking token than `stakeSplitCondition`,
+			// split staking balance to distribute staking power evenly
+			// Ex) 2_200_000_000_000
+			// stake 1_000_000_000_000 to val1
+			// stake 1_000_000_000_000 to val2
+			// stake 200_000_000_000 to val3
+			for ; stake.GTE(sdk.DefaultPowerReduction); stake = stake.Sub(splitStake) {
+				staked := sdk.MinInt(stake, splitStake).Int64()
+				stakeds += staked
+				validators[i%validatorLen] += staked
+				stakes[balIdx]++
+
+				// increase index only when staking happened
+				i++
+			}
+		}
+	)
+	bals := bankGenesisState.Balances
+	sort.Slice(bals, func(i, j int) bool {
+		return bals[i].Coins.IsAllGT(bals[j].Coins)
+	})
+	for i := 0; i < 4; i++ {
+		fmt.Println("BAL", i, human(bals[i].Coins.AmountOf("ugovgen")))
+	}
+
+	_, _ = terraAlgo, chatgptAlgo
+	for balIdx, bal := range bals {
+		tokens := bal.Coins.AmountOf("ugovgen")
+		supply = supply.Add(tokens)
+		if tokens.LTE(minTokens) {
+			// Don't stake when tokens < minToken
+			continue
+		}
+		numStakes++
+		// take 50%
+		stake := tokens.QuoRaw(2)
+		totalStake = totalStake.Add(stake)
+
+		chatgptAlgo(balIdx, stake)
+	}
+	for k, v := range stakes {
+		if v > 1 {
+			fmt.Println("STAKE", k, v)
+		}
+	}
+	for i := 0; i < validatorLen; i++ {
+		fmt.Println("VAL", i, humani(validators[i]))
+	}
+	fmt.Println("count", h.Comma(int64(numStakes)), h.Comma(int64(len(bankGenesisState.Balances))))
+	fmt.Println("amount", human(totalStake), humani(stakeds), human(supply))
+	fmt.Println("staking ratio", totalStake.ToDec().Quo(supply.ToDec()))
+	return nil
+}

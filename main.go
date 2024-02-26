@@ -7,11 +7,22 @@ import (
 	"path/filepath"
 
 	h "github.com/dustin/go-humanize"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+func human(i sdk.Int) string {
+	M := sdk.NewInt(1_000_000)
+	return h.Comma(i.Quo(M).Int64())
+}
+
+func humani(i int64) string {
+	return h.Comma(i / 1_000_000)
+}
+
 func main() {
-	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "accounts" && os.Args[1] != "genesis") {
-		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|accounts|genesis] [datapath]\n", os.Args[0])
+	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "accounts" && os.Args[1] != "genesis" && os.Args[1] != "distribution") {
+		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|accounts|genesis|distribution] [datapath]\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -27,6 +38,13 @@ func main() {
 			panic(err)
 		}
 		fmt.Printf("%s file created.\n", bankGenesisFile)
+		os.Exit(0)
+	}
+	if command == "distribution" {
+		err := distribution(filepath.Join(datapath, "genesis.json"))
+		if err != nil {
+			panic(err)
+		}
 		os.Exit(0)
 	}
 

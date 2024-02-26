@@ -77,16 +77,15 @@ func printTallyResults(results map[govtypes.VoteOption]sdk.Dec, totalVotingPower
 	fmt.Println("--- TALLY RESULT ---")
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"", "Yes", "No", "NoWithVeto", "Abstain", "Total"})
-	M := sdk.NewInt(1_000_000)
 	appendTable := func(source string, t govtypes.TallyResult) {
 		total := t.Yes.Add(t.No).Add(t.Abstain).Add(t.NoWithVeto)
 		table.Append([]string{
 			source,
-			h.Comma(t.Yes.Quo(M).Int64()),
-			h.Comma(t.No.Quo(M).Int64()),
-			h.Comma(t.NoWithVeto.Quo(M).Int64()),
-			h.Comma(t.Abstain.Quo(M).Int64()),
-			h.Comma(total.Quo(M).Int64()),
+			human(t.Yes),
+			human(t.No),
+			human(t.NoWithVeto),
+			human(t.Abstain),
+			human(total),
 		})
 	}
 	appendTable("computed", tallyResult)
