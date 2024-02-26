@@ -40,7 +40,6 @@ func distribution(genesisPath string) error {
 		numStakes           = 0
 		validatorLen        = 30
 		validators          = make([]int64, validatorLen)
-		i                   = 0
 		stakeds             int64
 		stakes              = make(map[int]int)
 		stakeSplitCondition = sdk.NewInt(1_000_000_000_000)
@@ -67,6 +66,7 @@ func distribution(genesisPath string) error {
 
 		// staking distrib from terra
 		// https://github.com/terra-money/core/blob/release/v2.0/app/app.go#L841
+		valIdx    = 0
 		terraAlgo = func(balIdx int, stake sdk.Int) {
 			// to prevent staking multiple times over the same validator
 			// adjust split amount for the whale account
@@ -83,11 +83,11 @@ func distribution(genesisPath string) error {
 			for ; stake.GTE(sdk.DefaultPowerReduction); stake = stake.Sub(splitStake) {
 				staked := sdk.MinInt(stake, splitStake).Int64()
 				stakeds += staked
-				validators[i%validatorLen] += staked
+				validators[valIdx%validatorLen] += staked
 				stakes[balIdx]++
 
 				// increase index only when staking happened
-				i++
+				valIdx++
 			}
 		}
 	)
