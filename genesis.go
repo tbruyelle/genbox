@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 
@@ -32,17 +31,7 @@ func applyVoteOptions(vote govtypes.WeightedVoteOptions, amount sdk.Dec) sdk.Dec
 }
 
 // TODO add tests
-func writeBankGenesis(src, dest string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("cannot read %s file, run `%s accounts` to generate it: %w", src, os.Args[0], err)
-	}
-	defer f.Close()
-	var accounts []Account
-	if err := json.NewDecoder(f).Decode(&accounts); err != nil {
-		return fmt.Errorf("cannot json decode accounts from file %s: %w", src, err)
-	}
-
+func writeBankGenesis(accounts []Account, dest string) error {
 	const ticker = "govgen"
 	var balances []banktypes.Balance
 	for _, a := range accounts {

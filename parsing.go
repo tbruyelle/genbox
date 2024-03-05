@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -33,6 +34,19 @@ func init() {
 	vestingtypes.RegisterInterfaces(registry)
 	icatypes.RegisterInterfaces(registry)
 	unmarshaler = jsonpb.Unmarshaler{AnyResolver: registry}
+}
+
+func parseAccounts(path string) ([]Account, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read %s file, run `%s accounts` to generate it: %w", path, os.Args[0], err)
+	}
+	defer f.Close()
+	var accounts []Account
+	if err := json.NewDecoder(f).Decode(&accounts); err != nil {
+		return nil, fmt.Errorf("cannot json decode accounts from file %s: %w", path, err)
+	}
+	return accounts, nil
 }
 
 func parseAccountTypesPerAddr(path string) (map[string]string, error) {

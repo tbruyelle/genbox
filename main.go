@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	h "github.com/dustin/go-humanize"
 
@@ -20,9 +22,12 @@ func humani(i int64) string {
 	return h.Comma(i / 1_000_000)
 }
 
+var commands = []string{"tally", "accounts", "genesis", "autostaking", "distribution"}
+
 func main() {
-	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "accounts" && os.Args[1] != "genesis" && os.Args[1] != "autostaking") {
-		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|accounts|genesis|autostaking] [datapath]\n", os.Args[0])
+	if len(os.Args) != 3 || !slices.Contains(commands, os.Args[1]) {
+		fmt.Fprintf(os.Stderr, "Usage:\n%s [%s] [datapath]\n",
+			filepath.Base(os.Args[0]), strings.Join(commands, "|"))
 		os.Exit(1)
 	}
 
@@ -33,16 +38,29 @@ func main() {
 		bankGenesisFile = filepath.Join(datapath, "bank.genesis")
 	)
 
-	if command == "genesis" {
-		if err := writeBankGenesis(accountsFile, bankGenesisFile); err != nil {
+	switch command {
+	case "genesis":
+		accounts, err := parseAccounts(accountsFile)
+		if err != nil {
+			panic(err)
+		}
+		if err := writeBankGenesis(accounts, bankGenesisFile); err != nil {
 			panic(err)
 		}
 		fmt.Printf("%s file created.\n", bankGenesisFile)
 		os.Exit(0)
-	}
-	if command == "autostaking" {
+	case "autostaking":
 		err := autoStaking(filepath.Join(datapath, "genesis.json"))
 		if err != nil {
+			panic(err)
+		}
+		os.Exit(0)
+	case "distribution":
+		accounts, err := parseAccounts(accountsFile)
+		if err != nil {
+			panic(err)
+		}
+		if err := distribution(accounts); err != nil {
 			panic(err)
 		}
 		os.Exit(0)
