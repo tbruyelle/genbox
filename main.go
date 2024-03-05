@@ -21,8 +21,8 @@ func humani(i int64) string {
 }
 
 func main() {
-	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "accounts" && os.Args[1] != "genesis" && os.Args[1] != "distribution") {
-		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|accounts|genesis|distribution] [datapath]\n", os.Args[0])
+	if len(os.Args) != 3 || (os.Args[1] != "tally" && os.Args[1] != "accounts" && os.Args[1] != "genesis" && os.Args[1] != "autostaking") {
+		fmt.Fprintf(os.Stderr, "Usage:\n%s [tally|accounts|genesis|autostaking] [datapath]\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -40,8 +40,8 @@ func main() {
 		fmt.Printf("%s file created.\n", bankGenesisFile)
 		os.Exit(0)
 	}
-	if command == "distribution" {
-		err := distribution(filepath.Join(datapath, "genesis.json"))
+	if command == "autostaking" {
+		err := autoStaking(filepath.Join(datapath, "genesis.json"))
 		if err != nil {
 			panic(err)
 		}

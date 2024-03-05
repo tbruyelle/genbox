@@ -14,7 +14,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-func distribution(genesisPath string) error {
+func autoStaking(genesisPath string) error {
 	bz, err := os.ReadFile(genesisPath)
 	if err != nil {
 		return fmt.Errorf("readfile %s: %w", genesisPath, err)
