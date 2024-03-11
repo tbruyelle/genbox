@@ -1,9 +1,13 @@
-# govgenesis
+# genbox
 
-Tool to validate governance data from a snapshot and turn data into a genesis.
+Various tools to:
+- validate governance data from a snapshot
+- turn data into a genesis
+- analyse distribution
+- etc...
 
 ```
-Usage: go run . [tally|genesis] PATH
+Usage: go run . [tally|genesis|...] PATH
 ```
 
 Where PATH is a directory containing the following files:

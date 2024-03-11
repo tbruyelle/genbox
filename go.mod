@@ -1,4 +1,4 @@
-module github.com/atomone-hub/govgenesis
+module github.com/atomone-hub/genbox
 
 go 1.21.3
 
