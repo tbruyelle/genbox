@@ -24,10 +24,20 @@ func distribution(accounts []Account) error {
 	)
 	for _, acc := range accounts {
 		if len(acc.Vote) == 0 {
-			// not a direct voter
-			// TODO handle them or not ?
+			// not a direct voter, check for delegated votes
+			for _, del := range acc.Delegations {
+				for _, vote := range del.Vote {
+					v, ok := amts[vote.Option]
+					if ok {
+						amt := del.Amount.Mul(vote.Weight)
+						amts[vote.Option] = v.Add(amt)
+						totalAmt = totalAmt.Add(amt)
+					}
+				}
+			}
 			continue
 		}
+		// direct voter
 		for _, vote := range acc.Vote {
 			v, ok := amts[vote.Option]
 			if ok {
