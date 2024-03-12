@@ -60,7 +60,17 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if err := distribution(accounts); err != nil {
+		res, err := distribution(accounts)
+		if err != nil {
+			panic(err)
+		}
+		airdropFile := filepath.Join(datapath, "airdrop.json")
+		f, err := os.Open(airdropFile)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if err := json.NewEncoder(f).Encode(res); err != nil {
 			panic(err)
 		}
 		os.Exit(0)

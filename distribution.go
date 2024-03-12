@@ -7,15 +7,14 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
-func distribution(accounts []Account) error {
-	// Some constants
-	var (
-		noMultiplier = sdk.NewDec(4)              // N & NWV get 1+x3
-		bonus        = sdk.NewDecWithPrec(103, 2) // 3% bonus
-		malus        = sdk.NewDecWithPrec(97, 2)  // -3% malus
-	)
-	_ = noMultiplier
-	_ = bonus
+// Some constants
+var (
+	noMultiplier = sdk.NewDec(4)              // N & NWV get 1+x3
+	bonus        = sdk.NewDecWithPrec(103, 2) // 3% bonus
+	malus        = sdk.NewDecWithPrec(97, 2)  // -3% malus
+)
+
+func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 	// Get amounts of Y, N and NWV
 	var (
 		amts     = newVoteMap()
@@ -74,6 +73,7 @@ func distribution(accounts []Account) error {
 	fmt.Println("BLEND", blend)
 
 	totalAirdrop := sdk.ZeroDec()
+	res := make(map[string]sdk.Dec)
 	for i := range accounts {
 		acc := &accounts[i]
 		percs := acc.VotePercs
@@ -86,14 +86,14 @@ func distribution(accounts []Account) error {
 		acc.AirdropAmount = acc.LiquidAmount.
 			Add(acc.StakedAmount.Mul(stakingMultiplier))
 		totalAirdrop = totalAirdrop.Add(acc.AirdropAmount)
+		res[acc.Address] = acc.AirdropAmount
 	}
 	fmt.Println("TOTAL SUPPLY ", totalAmt)
 	fmt.Println("TOTAL AIRDROP", totalAirdrop)
 	fmt.Println("RATIO", totalAirdrop.Quo(totalAmt))
 	// output
 	// address : airdropAmount
-
-	return nil
+	return res, nil
 }
 
 func newVoteMap() map[govtypes.VoteOption]sdk.Dec {
