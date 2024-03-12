@@ -7,12 +7,14 @@ import (
 )
 
 type Account struct {
-	Address      string
-	Type         string
-	LiquidAmount sdk.Dec
-	StakedAmount sdk.Dec
-	Vote         govtypes.WeightedVoteOptions
-	Delegations  []Delegation
+	Address       string
+	Type          string
+	LiquidAmount  sdk.Dec
+	StakedAmount  sdk.Dec
+	AirdropAmount sdk.Dec
+	Vote          govtypes.WeightedVoteOptions
+	Delegations   []Delegation
+	VotePercs     map[govtypes.VoteOption]sdk.Dec
 }
 
 type Delegation struct {

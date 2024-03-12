@@ -10,15 +10,19 @@ import (
 func distribution(accounts []Account) error {
 	// Some constants
 	var (
-		noMultiplier = sdk.NewDec(3)              // N & NWV get x3
+		noMultiplier = sdk.NewDec(4)              // N & NWV get 1+x3
 		bonus        = sdk.NewDecWithPrec(103, 2) // 3% bonus
+		malus        = sdk.NewDecWithPrec(97, 2)  // -3% malus
 	)
+	_ = noMultiplier
+	_ = bonus
 	// Get amounts of Y, N and NWV
 	var (
 		amts = map[govtypes.VoteOption]sdk.Dec{
 			govtypes.OptionYes:        sdk.ZeroDec(),
 			govtypes.OptionNo:         sdk.ZeroDec(),
 			govtypes.OptionNoWithVeto: sdk.ZeroDec(),
+			govtypes.OptionAbstain:    sdk.ZeroDec(),
 		}
 		totalAmt = sdk.ZeroDec()
 	)
@@ -56,8 +60,22 @@ func distribution(accounts []Account) error {
 	// Compute blend
 	blend := percs[govtypes.OptionYes].
 		Add(percs[govtypes.OptionNo].Mul(noMultiplier)).
-		Add(percs[govtypes.OptionNoWithVeto].Mul(noMultiplier).Mul(bonus))
+		Add(percs[govtypes.OptionNoWithVeto].Mul(noMultiplier))
 	fmt.Println("BLEND", blend)
+
+	for _, acc := range accounts {
+		percs := acc.VotePercs
+		stakingMultiplier := percs[govtypes.OptionYes].
+			Add(percs[govtypes.OptionNo].Mul(noMultiplier)).
+			Add(percs[govtypes.OptionNoWithVeto].Mul(noMultiplier).Mul(bonus)).
+			Add(percs[govtypes.OptionAbstain].Mul(blend)).
+			Add(percs[govtypes.OptionEmpty].Mul(blend).Mul(malus))
+
+		acc.AirdropAmount = acc.LiquidAmount.
+			Add(acc.StakedAmount.Mul(stakingMultiplier))
+	}
+	// output
+	// address : airdropAmount
 
 	return nil
 }
