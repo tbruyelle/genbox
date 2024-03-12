@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -21,6 +23,14 @@ type Delegation struct {
 	Amount           sdk.Dec
 	ValidatorAddress string
 	Vote             govtypes.WeightedVoteOptions
+}
+
+func (a Account) String() string {
+	bz, err := json.MarshalIndent(a, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	return string(bz)
 }
 
 // getAccounts returns the list of all account with their vote and
