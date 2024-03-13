@@ -79,13 +79,21 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 	for i := range accounts {
 		acc := &accounts[i]
 		percs := acc.VotePercs
+		// stakingMultiplier details:
+		// Yes:					x 1
+		// No:         	x noMultiplier
+		// NoWithVeto: 	x noMultiplier x bonus
+		// Abstain:    	x blend
+		// Didn't vote: x blend x malus
 		stakingMultiplier := percs[govtypes.OptionYes].
 			Add(percs[govtypes.OptionNo].Mul(noMultiplier)).
 			Add(percs[govtypes.OptionNoWithVeto].Mul(noMultiplier).Mul(bonus)).
 			Add(percs[govtypes.OptionAbstain].Mul(blend)).
 			Add(percs[govtypes.OptionEmpty].Mul(blend).Mul(malus))
+		// Liquid amount gets the same multiplier as those who didn't vote.
+		liquidMultiplier := blend.Mul(malus)
 
-		acc.AirdropAmount = acc.LiquidAmount.
+		acc.AirdropAmount = acc.LiquidAmount.Mul(liquidMultiplier).
 			Add(acc.StakedAmount.Mul(stakingMultiplier))
 		totalAirdrop = totalAirdrop.Add(acc.AirdropAmount)
 		res[acc.Address] = acc.AirdropAmount
