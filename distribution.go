@@ -113,8 +113,8 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 		totalAirdrop = totalAirdrop.Add(acc.AirdropAmount)
 		res[acc.Address] = acc.AirdropAmount
 	}
-	fmt.Println("TOTAL SUPPLY ", totalSupply)
-	fmt.Println("TOTAL AIRDROP", totalAirdrop)
+	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
+	fmt.Println("TOTAL AIRDROP", humand(totalAirdrop))
 	fmt.Println("RATIO", totalAirdrop.Quo(totalSupply))
 	// output
 	// address : airdropAmount

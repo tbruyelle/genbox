@@ -13,15 +13,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func human(i sdk.Int) string {
-	M := sdk.NewInt(1_000_000)
-	return h.Comma(i.Quo(M).Int64())
-}
-
-func humani(i int64) string {
-	return h.Comma(i / 1_000_000)
-}
-
 var commands = []string{"tally", "accounts", "genesis", "autostaking", "distribution"}
 
 func main() {
@@ -129,4 +120,18 @@ func main() {
 		}
 		fmt.Printf("%s file created.\n", accountsFile)
 	}
+}
+
+func human(i sdk.Int) string {
+	M := sdk.NewInt(1_000_000)
+	return h.Comma(i.Quo(M).Int64())
+}
+
+func humani(i int64) string {
+	return h.Comma(i / 1_000_000)
+}
+
+func humand(d sdk.Dec) string {
+	M := sdk.NewDec(1_000_000)
+	return h.Comma(d.Quo(M).RoundInt64())
 }
