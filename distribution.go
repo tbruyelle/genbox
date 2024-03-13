@@ -86,11 +86,9 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 
 	totalAirdrop := sdk.ZeroDec()
 	res := make(map[string]sdk.Dec)
-	for i := range accounts {
-		acc := &accounts[i]
+	for _, acc := range accounts {
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
-			acc.AirdropAmount = sdk.ZeroDec()
 			continue
 		}
 		percs := acc.VotePercs
@@ -108,10 +106,10 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 		// Liquid amount gets the same multiplier as those who didn't vote.
 		liquidMultiplier := blend.Mul(malus)
 
-		acc.AirdropAmount = acc.LiquidAmount.Mul(liquidMultiplier).
+		airdrop := acc.LiquidAmount.Mul(liquidMultiplier).
 			Add(acc.StakedAmount.Mul(stakingMultiplier))
-		totalAirdrop = totalAirdrop.Add(acc.AirdropAmount)
-		res[acc.Address] = acc.AirdropAmount
+		totalAirdrop = totalAirdrop.Add(airdrop)
+		res[acc.Address] = airdrop
 	}
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
 	fmt.Println("TOTAL AIRDROP", humand(totalAirdrop))

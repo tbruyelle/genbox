@@ -55,13 +55,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		airdropFile := filepath.Join(datapath, "airdrop.json")
-		f, err := os.Create(airdropFile)
+		bz, err := json.MarshalIndent(res, "", "  ")
 		if err != nil {
 			panic(err)
 		}
-		defer f.Close()
-		if err := json.NewEncoder(f).Encode(res); err != nil {
+		airdropFile := filepath.Join(datapath, "airdrop.json")
+		if err := os.WriteFile(airdropFile, bz, 0o666); err != nil {
 			panic(err)
 		}
 		os.Exit(0)
