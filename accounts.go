@@ -45,9 +45,15 @@ func getAccounts(
 	accountsByAddr := make(map[string]Account, len(delegsByAddr))
 	// Feed delegations
 	for addr, delegs := range delegsByAddr {
+		accType := accountTypesPerAddr[addr]
+		if accType == "/cosmos.auth.v1beta1.ModuleAccount" ||
+			accType == "/ibc.applications.interchain_accounts.v1.InterchainAccount" {
+			// Ignore ModuleAccount & InterchainAccount
+			continue
+		}
 		account := Account{
 			Address:      addr,
-			Type:         accountTypesPerAddr[addr],
+			Type:         accType,
 			LiquidAmount: sdk.ZeroDec(),
 			StakedAmount: sdk.ZeroDec(),
 			Vote:         votesByAddr[addr],
@@ -80,9 +86,15 @@ func getAccounts(
 			acc.LiquidAmount = balance.Amount.ToDec().Sub(acc.StakedAmount)
 			accountsByAddr[addr] = acc
 		} else {
+			accType := accountTypesPerAddr[addr]
+			if accType == "/cosmos.auth.v1beta1.ModuleAccount" ||
+				accType == "/ibc.applications.interchain_accounts.v1.InterchainAccount" {
+				// Ignore ModuleAccount & InterchainAccount
+				continue
+			}
 			accountsByAddr[addr] = Account{
 				Address:      addr,
-				Type:         accountTypesPerAddr[addr],
+				Type:         accType,
 				LiquidAmount: balance.Amount.ToDec(),
 				StakedAmount: sdk.ZeroDec(),
 			}
