@@ -77,7 +77,7 @@ func getAccounts(
 	for addr, balance := range balancesByAddr {
 		acc, ok := accountsByAddr[addr]
 		if ok {
-			acc.LiquidAmount = balance.Amount.ToDec()
+			acc.LiquidAmount = balance.Amount.ToDec().Sub(acc.StakedAmount)
 			accountsByAddr[addr] = acc
 		} else {
 			accountsByAddr[addr] = Account{
