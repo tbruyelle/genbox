@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -9,6 +10,15 @@ import (
 
 // Some constants
 var (
+	// list of ICF wallets
+	icfWallets = []string{
+		// Source https://github.com/gnolang/bounties/issues/18#issuecomment-1034700230
+		"cosmos1z8mzakma7vnaajysmtkwt4wgjqr2m84tzvyfkz",
+		"cosmos1unc788q8md2jymsns24eyhua58palg5kc7cstv",
+		// The 2 addresses above have been emptied in favour of the following 2
+		"cosmos1sufkm72dw7ua9crpfhhp0dqpyuggtlhdse98e7",
+		"cosmos1z6czaavlk6kjd48rpf58kqqw9ssad2uaxnazgl",
+	}
 	noMultiplier = sdk.NewDec(4)              // N & NWV get 1+x3
 	bonus        = sdk.NewDecWithPrec(103, 2) // 3% bonus
 	malus        = sdk.NewDecWithPrec(97, 2)  // -3% malus
@@ -78,6 +88,11 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 	res := make(map[string]sdk.Dec)
 	for i := range accounts {
 		acc := &accounts[i]
+		if slices.Contains(icfWallets, acc.Address) {
+			// Slash ICF
+			acc.AirdropAmount = sdk.ZeroDec()
+			continue
+		}
 		percs := acc.VotePercs
 		// stakingMultiplier details:
 		// Yes:					x 1
