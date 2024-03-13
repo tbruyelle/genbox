@@ -65,7 +65,7 @@ func main() {
 			panic(err)
 		}
 		airdropFile := filepath.Join(datapath, "airdrop.json")
-		f, err := os.Open(airdropFile)
+		f, err := os.Create(airdropFile)
 		if err != nil {
 			panic(err)
 		}

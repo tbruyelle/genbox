@@ -17,13 +17,15 @@ var (
 func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 	// Get amounts of Y, N and NWV
 	var (
-		amts     = newVoteMap()
-		totalAmt = sdk.ZeroDec()
+		amts        = newVoteMap()
+		totalAmt    = sdk.ZeroDec()
+		totalSupply = sdk.ZeroDec()
 	)
 	for i := range accounts {
 		// init VotePercs
 		acc := &accounts[i]
 		acc.VotePercs = newVoteMap()
+		totalSupply = totalSupply.Add(acc.StakedAmount).Add(acc.LiquidAmount)
 		if acc.StakedAmount.IsZero() {
 			// No stake, consider non-voter
 			acc.VotePercs[govtypes.OptionEmpty] = sdk.NewDec(1)
@@ -88,9 +90,9 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 		totalAirdrop = totalAirdrop.Add(acc.AirdropAmount)
 		res[acc.Address] = acc.AirdropAmount
 	}
-	fmt.Println("TOTAL SUPPLY ", totalAmt)
+	fmt.Println("TOTAL SUPPLY ", totalSupply)
 	fmt.Println("TOTAL AIRDROP", totalAirdrop)
-	fmt.Println("RATIO", totalAirdrop.Quo(totalAmt))
+	fmt.Println("RATIO", totalAirdrop.Quo(totalSupply))
 	// output
 	// address : airdropAmount
 	return res, nil
