@@ -84,12 +84,6 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 			}
 		}
 	}
-	// Compute the absolute percentages
-	percs := make(map[govtypes.VoteOption]sdk.Dec)
-	for k, v := range amts {
-		percs[k] = v.Quo(totalAmt)
-	}
-
 	// Compute percentage of Y, N and NWM amouts relative to activeVotesTotalAmt
 	relativePercs := make(map[govtypes.VoteOption]sdk.Dec)
 	for _, v := range []govtypes.VoteOption{
@@ -133,6 +127,14 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 			Add(acc.StakedAmount.Mul(stakingMultiplier))
 		totalAirdrop = totalAirdrop.Add(airdrop)
 		res[acc.Address] = airdrop
+
+		// track also liquid amounts for the absolute percentages
+		totalAmt = totalAmt.Add(acc.LiquidAmount)
+	}
+	// Compute the absolute percentages
+	percs := make(map[govtypes.VoteOption]sdk.Dec)
+	for k, v := range amts {
+		percs[k] = v.Quo(totalAmt)
 	}
 	fmt.Println("BLEND", blend)
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
