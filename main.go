@@ -28,7 +28,6 @@ func main() {
 		accountsFile    = filepath.Join(datapath, "accounts.json")
 		bankGenesisFile = filepath.Join(datapath, "bank.genesis")
 	)
-
 	switch command {
 	case "genesis":
 		accounts, err := parseAccounts(accountsFile)
@@ -39,13 +38,13 @@ func main() {
 			panic(err)
 		}
 		fmt.Printf("%s file created.\n", bankGenesisFile)
-		os.Exit(0)
+
 	case "autostaking":
 		err := autoStaking(filepath.Join(datapath, "genesis.json"))
 		if err != nil {
 			panic(err)
 		}
-		os.Exit(0)
+
 	case "distribution":
 		accounts, err := parseAccounts(accountsFile)
 		if err != nil {
@@ -63,50 +62,44 @@ func main() {
 		if err := os.WriteFile(airdropFile, bz, 0o666); err != nil {
 			panic(err)
 		}
-		os.Exit(0)
-	}
 
-	//-----------------------------------------
-	// Read data from files
-
-	votesByAddr, err := parseVotesByAddr(datapath)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s votes\n", h.Comma(int64(len(votesByAddr))))
-	valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%d validators\n", len(valsByAddr))
-	delegsByAddr, err := parseDelegationsByAddr(datapath)
-	if err != nil {
-		panic(err)
-	}
-	var numDeleg int
-	for _, d := range delegsByAddr {
-		numDeleg += len(d)
-	}
-	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(numDeleg)),
-		h.Comma(int64(len(delegsByAddr))))
-	balancesByAddr, err := parseBalancesByAddr(datapath, "uatom")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s account balances\n", h.Comma(int64(len(balancesByAddr))))
-
-	switch command {
 	case "tally":
+		votesByAddr, err := parseVotesByAddr(datapath)
+		if err != nil {
+			panic(err)
+		}
+		valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
+		if err != nil {
+			panic(err)
+		}
+		delegsByAddr, err := parseDelegationsByAddr(datapath)
+		if err != nil {
+			panic(err)
+		}
 		results, totalVotingPower := tally(votesByAddr, valsByAddr, delegsByAddr)
-		// Optionnaly print and compare tally with prop data
 		printTallyResults(results, totalVotingPower, parseProp(datapath))
 
 	case "accounts":
+		votesByAddr, err := parseVotesByAddr(datapath)
+		if err != nil {
+			panic(err)
+		}
+		valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
+		if err != nil {
+			panic(err)
+		}
+		delegsByAddr, err := parseDelegationsByAddr(datapath)
+		if err != nil {
+			panic(err)
+		}
+		balancesByAddr, err := parseBalancesByAddr(datapath, "uatom")
+		if err != nil {
+			panic(err)
+		}
 		accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("%s accounts\n", h.Comma(int64(len(accountTypesByAddr))))
 
 		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr, accountTypesByAddr)
 

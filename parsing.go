@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	h "github.com/dustin/go-humanize"
 	"github.com/gogo/protobuf/jsonpb"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -60,13 +61,14 @@ func parseAccountTypesPerAddr(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountTypesPerAddr := make(map[string]string)
+	accountTypesByAddr := make(map[string]string)
 	for i, any := range genesis.Accounts {
 		var acc authtypes.GenesisAccount
 		registry.UnpackAny(any, &acc)
-		accountTypesPerAddr[acc.GetAddress().String()] = genesis.Accounts[i].GetTypeUrl()
+		accountTypesByAddr[acc.GetAddress().String()] = genesis.Accounts[i].GetTypeUrl()
 	}
-	return accountTypesPerAddr, nil
+	fmt.Printf("%s accounts\n", h.Comma(int64(len(accountTypesByAddr))))
+	return accountTypesByAddr, nil
 }
 
 func parseVotesByAddr(path string) (map[string]govtypes.WeightedVoteOptions, error) {
@@ -90,6 +92,7 @@ func parseVotesByAddr(path string) (map[string]govtypes.WeightedVoteOptions, err
 		}
 		votesByAddr[vote.Voter] = vote.Options
 	}
+	fmt.Printf("%s votes\n", h.Comma(int64(len(votesByAddr))))
 	return votesByAddr, nil
 }
 
@@ -108,6 +111,8 @@ func parseDelegationsByAddr(path string) (map[string][]stakingtypes.Delegation, 
 	for _, d := range delegs {
 		delegsByAddr[d.DelegatorAddress] = append(delegsByAddr[d.DelegatorAddress], d)
 	}
+	fmt.Printf("%s delegations for %s delegators\n", h.Comma(int64(len(delegs))),
+		h.Comma(int64(len(delegsByAddr))))
 	return delegsByAddr, nil
 }
 
@@ -144,6 +149,7 @@ func parseValidatorsByAddr(path string, votesByAddr map[string]govtypes.Weighted
 			votesByAddr[accAddr],
 		)
 	}
+	fmt.Printf("%d validators\n", len(valsByAddr))
 	return valsByAddr, nil
 }
 
@@ -182,5 +188,6 @@ func parseBalancesByAddr(path, denom string) (map[string]sdk.Coin, error) {
 			}
 		}
 	}
+	fmt.Printf("%s account balances\n", h.Comma(int64(len(balancesByAddr))))
 	return balancesByAddr, nil
 }
