@@ -51,7 +51,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		res, err := distribution(accounts)
+		res, _, err := distribution(accounts)
 		if err != nil {
 			panic(err)
 		}
@@ -121,16 +121,22 @@ func main() {
 	}
 }
 
+const M = 1_000_000 // 1 million
+
 func human(i sdk.Int) string {
-	M := sdk.NewInt(1_000_000)
+	M := sdk.NewInt(M)
 	return h.Comma(i.Quo(M).Int64())
 }
 
 func humani(i int64) string {
-	return h.Comma(i / 1_000_000)
+	return h.Comma(i / M)
 }
 
 func humand(d sdk.Dec) string {
 	M := sdk.NewDec(1_000_000)
 	return h.Comma(d.Quo(M).RoundInt64())
+}
+
+func humanPercent(d sdk.Dec) string {
+	return fmt.Sprintf("%d%%", d.Mul(sdk.NewDec(100)).RoundInt64())
 }

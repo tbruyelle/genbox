@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"slices"
+
+	"github.com/olekukonko/tablewriter"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -19,12 +22,13 @@ var (
 		"cosmos1sufkm72dw7ua9crpfhhp0dqpyuggtlhdse98e7",
 		"cosmos1z6czaavlk6kjd48rpf58kqqw9ssad2uaxnazgl",
 	}
-	noMultiplier = sdk.NewDec(4)              // N & NWV get 1+x3
-	bonus        = sdk.NewDecWithPrec(103, 2) // 3% bonus
-	malus        = sdk.NewDecWithPrec(97, 2)  // -3% malus
+	yesMultiplier = sdk.NewDec(1)              // Y get x1
+	noMultiplier  = sdk.NewDec(4)              // N & NWV get 1+x3
+	bonus         = sdk.NewDecWithPrec(103, 2) // 3% bonus
+	malus         = sdk.NewDecWithPrec(97, 2)  // -3% malus
 )
 
-func distribution(accounts []Account) (map[string]sdk.Dec, error) {
+func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	// Get amounts of Y, N and NWV
 	var (
 		amts        = newVoteMap()
@@ -49,8 +53,9 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 				if len(del.Vote) == 0 {
 					// user didn't vote and delegation didn't either, use the UNSPECIFIED
 					// vote option to track it.
-					acc.VotePercs[govtypes.OptionEmpty] = acc.VotePercs[govtypes.OptionEmpty].
-						Add(sdk.NewDec(1).Mul(delPerc))
+					acc.VotePercs[govtypes.OptionEmpty] = acc.VotePercs[govtypes.OptionEmpty].Add(delPerc)
+					amts[govtypes.OptionEmpty] = amts[govtypes.OptionEmpty].Add(del.Amount)
+					totalAmt = totalAmt.Add(del.Amount)
 				} else {
 					for _, vote := range del.Vote {
 						acc.VotePercs[vote.Option] = acc.VotePercs[vote.Option].Add(vote.Weight.Mul(delPerc))
@@ -76,13 +81,11 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 	percs := make(map[govtypes.VoteOption]sdk.Dec)
 	for k, v := range amts {
 		percs[k] = v.Quo(totalAmt)
-		fmt.Println(k, percs[k])
 	}
 	// Compute blend
 	blend := percs[govtypes.OptionYes].
 		Add(percs[govtypes.OptionNo].Mul(noMultiplier)).
 		Add(percs[govtypes.OptionNoWithVeto].Mul(noMultiplier))
-	fmt.Println("BLEND", blend)
 
 	totalAirdrop := sdk.ZeroDec()
 	res := make(map[string]sdk.Dec)
@@ -111,12 +114,48 @@ func distribution(accounts []Account) (map[string]sdk.Dec, error) {
 		totalAirdrop = totalAirdrop.Add(airdrop)
 		res[acc.Address] = airdrop
 	}
+	fmt.Println("BLEND", blend)
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
 	fmt.Println("TOTAL AIRDROP", humand(totalAirdrop))
 	fmt.Println("RATIO", totalAirdrop.Quo(totalSupply))
+	fmt.Println("PERCS", percs)
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
+	var (
+		totalDidntVoteAirdrop  = totalAirdrop.Mul(percs[govtypes.OptionEmpty])
+		totalYesAirdrop        = totalAirdrop.Mul(percs[govtypes.OptionYes])
+		totalNoAirdrop         = totalAirdrop.Mul(percs[govtypes.OptionNo])
+		totalNoWithVetoAirdrop = totalAirdrop.Mul(percs[govtypes.OptionNoWithVeto])
+		totalAbstainAirdrop    = totalAirdrop.Mul(percs[govtypes.OptionAbstain])
+		totalStakedAirdrop     = totalDidntVoteAirdrop.Add(totalYesAirdrop).
+					Add(totalNoAirdrop).Add(totalNoWithVetoAirdrop).Add(totalAbstainAirdrop)
+		totalUnstakedAirdrop = totalAirdrop.Sub(totalStakedAirdrop)
+	)
+	table.Append([]string{
+		"Distributed $ATONE",
+		humand(totalAirdrop),
+		humand(totalDidntVoteAirdrop),
+		humand(totalYesAirdrop),
+		humand(totalNoAirdrop),
+		humand(totalNoWithVetoAirdrop),
+		humand(totalAbstainAirdrop),
+		humand(totalUnstakedAirdrop),
+	})
+	table.Append([]string{
+		"Percentage over total",
+		"",
+		humanPercent(totalDidntVoteAirdrop.Quo(totalAirdrop)),
+		humanPercent(totalYesAirdrop.Quo(totalAirdrop)),
+		humanPercent(totalNoAirdrop.Quo(totalAirdrop)),
+		humanPercent(totalNoWithVetoAirdrop.Quo(totalAirdrop)),
+		humanPercent(totalAbstainAirdrop.Quo(totalAirdrop)),
+		humanPercent(totalUnstakedAirdrop.Quo(totalAirdrop)),
+	})
+	table.Render()
 	// output
 	// address : airdropAmount
-	return res, nil
+	return res, blend, nil
 }
 
 func newVoteMap() map[govtypes.VoteOption]sdk.Dec {
