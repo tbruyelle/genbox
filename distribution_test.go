@@ -32,9 +32,12 @@ func TestDistribution(t *testing.T) {
 	)
 
 	tests := []struct {
-		name        string
-		accounts    []Account
-		expectedRes func(sdk.Dec) map[string]sdk.Dec
+		name              string
+		accounts          []Account
+		expectedAddresses func(sdk.Dec) map[string]sdk.Dec
+		expectedTotal     int64
+		expectedUnstaked  int64
+		expectedVotes     map[govtypes.VoteOption]int64
 	}{
 		{
 			name: "direct votes",
@@ -72,7 +75,7 @@ func TestDistribution(t *testing.T) {
 					}},
 				},
 			},
-			expectedRes: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
 					"yes":        sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2)),
 					"abstain":    sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(blend)),
@@ -80,6 +83,15 @@ func TestDistribution(t *testing.T) {
 					"noWithVeto": sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(noVotesMultiplier).Mul(bonus)),
 					"didntVote":  sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(blend).Mul(malus)),
 				}
+			},
+			expectedTotal:    45,
+			expectedUnstaked: 15,
+			expectedVotes: map[govtypes.VoteOption]int64{
+				govtypes.OptionEmpty:      6,
+				govtypes.OptionYes:        2,
+				govtypes.OptionAbstain:    6,
+				govtypes.OptionNo:         8,
+				govtypes.OptionNoWithVeto: 9,
 			},
 		},
 		{
@@ -109,7 +121,7 @@ func TestDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedRes: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
 					"directWeightVote":
 					// liquid amount
@@ -123,6 +135,15 @@ func TestDistribution(t *testing.T) {
 						// voted noWithVeto
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)),
 				}
+			},
+			expectedTotal:    70,
+			expectedUnstaked: 4,
+			expectedVotes: map[govtypes.VoteOption]int64{
+				govtypes.OptionEmpty:      0,
+				govtypes.OptionYes:        2,
+				govtypes.OptionAbstain:    14,
+				govtypes.OptionNo:         22,
+				govtypes.OptionNoWithVeto: 30,
 			},
 		},
 		{
@@ -162,7 +183,7 @@ func TestDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedRes: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
 					"indirectVote":
 					// liquid amount
@@ -178,6 +199,15 @@ func TestDistribution(t *testing.T) {
 						// from deleg who voted noWithVeto
 						Add(sdk.NewDec(6).Mul(noVotesMultiplier).Mul(bonus)),
 				}
+			},
+			expectedTotal:    71,
+			expectedUnstaked: 4,
+			expectedVotes: map[govtypes.VoteOption]int64{
+				govtypes.OptionEmpty:      7,
+				govtypes.OptionYes:        3,
+				govtypes.OptionAbstain:    14,
+				govtypes.OptionNo:         20,
+				govtypes.OptionNoWithVeto: 25,
 			},
 		},
 		{
@@ -219,7 +249,7 @@ func TestDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedRes: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
 					"directWeightVote":
 					// liquid amount
@@ -235,6 +265,15 @@ func TestDistribution(t *testing.T) {
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)),
 				}
 			},
+			expectedTotal:    78,
+			expectedUnstaked: 4,
+			expectedVotes: map[govtypes.VoteOption]int64{
+				govtypes.OptionEmpty:      0,
+				govtypes.OptionYes:        2,
+				govtypes.OptionAbstain:    14,
+				govtypes.OptionNo:         30,
+				govtypes.OptionNoWithVeto: 30,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -243,16 +282,21 @@ func TestDistribution(t *testing.T) {
 			assert := assert.New(t)
 			fmt.Println(sdk.NewDecWithPrec(55, 1).Mul(malus))
 
-			res, blend, err := distribution(tt.accounts)
+			airdrop, err := distribution(tt.accounts)
 
 			require.NoError(err)
-			expectedRes := tt.expectedRes(blend)
-			assert.Equal(len(expectedRes), len(res), "unexpected number of res")
-			for k, v := range res {
+			expectedRes := tt.expectedAddresses(airdrop.blend)
+			assert.Equal(len(expectedRes), len(airdrop.addresses), "unexpected number of res")
+			for k, v := range airdrop.addresses {
 				ev, ok := expectedRes[k]
 				if assert.True(ok, "unexpected address '%s'", k) {
 					assert.Equal(ev.RoundInt64(), v.RoundInt64(), "unexpected airdrop amount for address '%s'", k)
 				}
+			}
+			assert.Equal(tt.expectedTotal, airdrop.total.Ceil().RoundInt64(), "unexpected airdrop.total")
+			assert.Equal(tt.expectedUnstaked, airdrop.unstaked.Ceil().RoundInt64(), "unexpected airdrop.unstaked")
+			for _, v := range voteOptions {
+				assert.Equal(tt.expectedVotes[v], airdrop.votes[v].Ceil().RoundInt64(), "unexpected airdrop.votes[%s]", v)
 			}
 		})
 	}

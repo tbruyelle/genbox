@@ -2,10 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"slices"
-
-	"github.com/olekukonko/tablewriter"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -28,7 +25,21 @@ var (
 	malus              = sdk.NewDecWithPrec(97, 2)  // -3% malus
 )
 
-func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
+type airdrop struct {
+	// addresses contains the airdrop amount per address.
+	addresses map[string]sdk.Dec
+	// blend is the neutral multiplier, for which the $ATOM is neither rewarded
+	// nor diluted.
+	blend sdk.Dec
+	// total of the airdrop.
+	total sdk.Dec
+	// votes holds the part of the airdrop per vote.
+	votes voteMap
+	// unstaked is part of the airdrop for unstaked amounts.
+	unstaked sdk.Dec
+}
+
+func distribution(accounts []Account) (airdrop, error) {
 	var (
 		amts                = newVoteMap()
 		totalAmt            = sdk.ZeroDec()
@@ -98,10 +109,14 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		Add(relativePercs[govtypes.OptionNo].Mul(noVotesMultiplier)).
 		Add(relativePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier))
 
-	totalAirdrop := sdk.ZeroDec()
 	icfSlash := sdk.ZeroDec()
-	res := make(map[string]sdk.Dec)
-	airdropByVote := newVoteMap()
+	airdrop := airdrop{
+		addresses: make(map[string]sdk.Dec),
+		blend:     blend,
+		total:     sdk.ZeroDec(),
+		votes:     newVoteMap(),
+		unstaked:  sdk.ZeroDec(),
+	}
 	for _, acc := range accounts {
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
@@ -121,65 +136,40 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 			abstainAirdropAmt    = acc.votePercs[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
 			noVoteAirdropAmt     = acc.votePercs[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
 		)
-		airdropByVote.add(govtypes.OptionYes, yesAirdropAmt)
-		airdropByVote.add(govtypes.OptionNo, noAirdropAmt)
-		airdropByVote.add(govtypes.OptionNoWithVeto, noWithVetoAirdropAmt)
-		airdropByVote.add(govtypes.OptionAbstain, abstainAirdropAmt)
-		airdropByVote.add(govtypes.OptionEmpty, noVoteAirdropAmt)
+		airdrop.votes.add(govtypes.OptionYes, yesAirdropAmt)
+		airdrop.votes.add(govtypes.OptionNo, noAirdropAmt)
+		airdrop.votes.add(govtypes.OptionNoWithVeto, noWithVetoAirdropAmt)
+		airdrop.votes.add(govtypes.OptionAbstain, abstainAirdropAmt)
+		airdrop.votes.add(govtypes.OptionEmpty, noVoteAirdropAmt)
 
 		// Liquid amount gets the same multiplier as those who didn't vote.
 		liquidMultiplier := blend.Mul(malus)
 
-		airdrop := acc.LiquidAmount.Mul(liquidMultiplier).
+		airdropAmt := acc.LiquidAmount.Mul(liquidMultiplier).
 			Add(yesAirdropAmt).Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
 			Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
-		totalAirdrop = totalAirdrop.Add(airdrop)
-		res[acc.Address] = airdrop
+		airdrop.total = airdrop.total.Add(airdropAmt)
+		airdrop.addresses[acc.Address] = airdropAmt
 	}
 
 	fmt.Println("BLEND", blend)
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
-	fmt.Println("TOTAL AIRDROP", humand(totalAirdrop))
-	fmt.Println("RATIO", totalAirdrop.Quo(totalSupply))
+	fmt.Println("TOTAL AIRDROP", humand(airdrop.total))
+	fmt.Println("RATIO", airdrop.total.Quo(totalSupply))
 	fmt.Println("RELATIVE PERCS", relativePercs)
 	fmt.Println("ICF SLASH", humand(icfSlash))
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
 	var (
-		totalDidntVoteAirdrop  = airdropByVote[govtypes.OptionEmpty]
-		totalYesAirdrop        = airdropByVote[govtypes.OptionYes]
-		totalNoAirdrop         = airdropByVote[govtypes.OptionNo]
-		totalNoWithVetoAirdrop = airdropByVote[govtypes.OptionNoWithVeto]
-		totalAbstainAirdrop    = airdropByVote[govtypes.OptionAbstain]
+		totalDidntVoteAirdrop  = airdrop.votes[govtypes.OptionEmpty]
+		totalYesAirdrop        = airdrop.votes[govtypes.OptionYes]
+		totalNoAirdrop         = airdrop.votes[govtypes.OptionNo]
+		totalNoWithVetoAirdrop = airdrop.votes[govtypes.OptionNoWithVeto]
+		totalAbstainAirdrop    = airdrop.votes[govtypes.OptionAbstain]
 		totalStakedAirdrop     = totalDidntVoteAirdrop.Add(totalYesAirdrop).
 					Add(totalNoAirdrop).Add(totalNoWithVetoAirdrop).Add(totalAbstainAirdrop)
-		totalUnstakedAirdrop = totalAirdrop.Sub(totalStakedAirdrop)
 	)
-	table.Append([]string{
-		"Distributed $ATONE",
-		humand(totalAirdrop),
-		humand(totalDidntVoteAirdrop),
-		humand(totalYesAirdrop),
-		humand(totalNoAirdrop),
-		humand(totalNoWithVetoAirdrop),
-		humand(totalAbstainAirdrop),
-		humand(totalUnstakedAirdrop),
-	})
-	table.Append([]string{
-		"Percentage over total",
-		"",
-		humanPercent(totalDidntVoteAirdrop.Quo(totalAirdrop)),
-		humanPercent(totalYesAirdrop.Quo(totalAirdrop)),
-		humanPercent(totalNoAirdrop.Quo(totalAirdrop)),
-		humanPercent(totalNoWithVetoAirdrop.Quo(totalAirdrop)),
-		humanPercent(totalAbstainAirdrop.Quo(totalAirdrop)),
-		humanPercent(totalUnstakedAirdrop.Quo(totalAirdrop)),
-	})
-	table.Render()
-	// output
-	// address : airdropAmount
-	return res, blend, nil
+	airdrop.unstaked = airdrop.total.Sub(totalStakedAirdrop)
+	return airdrop, nil
 }
 
 // convienient type for manipulating vote counts.
