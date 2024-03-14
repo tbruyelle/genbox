@@ -102,6 +102,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	totalAirdrop := sdk.ZeroDec()
 	icfSlash := sdk.ZeroDec()
 	res := make(map[string]sdk.Dec)
+	airdropByVote := newVoteMap()
 	for _, acc := range accounts {
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
@@ -115,16 +116,25 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		// NoWithVeto: 	x noVotesMultiplier x bonus
 		// Abstain:    	x blend
 		// Didn't vote: x blend x malus
-		stakingMultiplier := acctPercs[govtypes.OptionYes].Mul(yesVotesMultiplier).
-			Add(acctPercs[govtypes.OptionNo].Mul(noVotesMultiplier)).
-			Add(acctPercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus)).
-			Add(acctPercs[govtypes.OptionAbstain].Mul(blend)).
-			Add(acctPercs[govtypes.OptionEmpty].Mul(blend).Mul(malus))
+		var (
+			yesAirdropAmt        = acctPercs[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
+			noAirdropAmt         = acctPercs[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
+			noWithVetoAirdropAmt = acctPercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
+			abstainAirdropAmt    = acctPercs[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
+			noVoteAirdropAmt     = acctPercs[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
+		)
+		airdropByVote[govtypes.OptionYes] = airdropByVote[govtypes.OptionYes].Add(yesAirdropAmt)
+		airdropByVote[govtypes.OptionNo] = airdropByVote[govtypes.OptionNo].Add(noAirdropAmt)
+		airdropByVote[govtypes.OptionNoWithVeto] = airdropByVote[govtypes.OptionNoWithVeto].Add(noWithVetoAirdropAmt)
+		airdropByVote[govtypes.OptionAbstain] = airdropByVote[govtypes.OptionAbstain].Add(abstainAirdropAmt)
+		airdropByVote[govtypes.OptionEmpty] = airdropByVote[govtypes.OptionEmpty].Add(noVoteAirdropAmt)
+
 		// Liquid amount gets the same multiplier as those who didn't vote.
 		liquidMultiplier := blend.Mul(malus)
 
 		airdrop := acc.LiquidAmount.Mul(liquidMultiplier).
-			Add(acc.StakedAmount.Mul(stakingMultiplier))
+			Add(yesAirdropAmt).Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
+			Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
 		totalAirdrop = totalAirdrop.Add(airdrop)
 		res[acc.Address] = airdrop
 
@@ -133,23 +143,32 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	}
 	// Compute the absolute percentages
 	percs := make(map[govtypes.VoteOption]sdk.Dec)
+	tmp := sdk.ZeroDec()
+	tmp2 := sdk.ZeroDec()
 	for k, v := range amts {
-		oldPerc = v.Quo(totalAmt)
-		newPerc := sdk.ZeroDec();
-		switch _; k {
-		   case govtypes.OptionYes:		      	
+		oldPerc := v.Quo(totalAmt)
+		newPerc := sdk.ZeroDec()
+		switch k {
+		case govtypes.OptionYes:
 			newPerc = oldPerc.Mul(yesVotesMultiplier)
-		   case govtypes.OptionNo:
+		case govtypes.OptionNo:
 			newPerc = oldPerc.Mul(noVotesMultiplier)
-		   case govtypes.OptionNoWithVeto:
+		case govtypes.OptionNoWithVeto:
 			newPerc = oldPerc.Mul(noVotesMultiplier).Mul(bonus)
-	           case govtypes.OptionAbstain:
+		case govtypes.OptionAbstain:
 			newPerc = oldPerc.Mul(blend)
-		   case govtypes.OptionEmpty:
+		case govtypes.OptionEmpty:
 			newPerc = oldPerc.Mul(blend).Mul(malus)
 		}
+		tmp = tmp.Add(newPerc)
+		tmp2 = tmp2.Add(oldPerc)
 		percs[k] = newPerc
 	}
+	tmp = tmp.Add(sdk.OneDec().Sub(tmp2).Mul(blend).Mul(malus))
+	for k := range amts {
+		percs[k] = percs[k].Quo(tmp)
+	}
+
 	fmt.Println("BLEND", blend)
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
 	fmt.Println("TOTAL AIRDROP", humand(totalAirdrop))
@@ -171,7 +190,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		totalUnstakedAirdrop = totalAirdrop.Sub(totalStakedAirdrop)
 	)
 	table.Append([]string{
-		"Distributed $ATONE",
+		"Old Distributed $ATONE",
 		humand(totalAirdrop),
 		humand(totalDidntVoteAirdrop),
 		humand(totalYesAirdrop),
@@ -181,7 +200,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		humand(totalUnstakedAirdrop),
 	})
 	table.Append([]string{
-		"Percentage over total",
+		"Old Percentage over total",
 		"",
 		humanPercent(totalDidntVoteAirdrop.Quo(totalAirdrop)),
 		humanPercent(totalYesAirdrop.Quo(totalAirdrop)),
@@ -189,6 +208,26 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		humanPercent(totalNoWithVetoAirdrop.Quo(totalAirdrop)),
 		humanPercent(totalAbstainAirdrop.Quo(totalAirdrop)),
 		humanPercent(totalUnstakedAirdrop.Quo(totalAirdrop)),
+	})
+	table.Append([]string{
+		"Distributed $ATONE",
+		humand(totalAirdrop),
+		humand(airdropByVote[govtypes.OptionEmpty]),
+		humand(airdropByVote[govtypes.OptionYes]),
+		humand(airdropByVote[govtypes.OptionNo]),
+		humand(airdropByVote[govtypes.OptionNoWithVeto]),
+		humand(airdropByVote[govtypes.OptionAbstain]),
+		humand(totalAirdrop.Sub(airdropByVote[govtypes.OptionEmpty].Add(airdropByVote[govtypes.OptionYes].Add(airdropByVote[govtypes.OptionNo]).Add(airdropByVote[govtypes.OptionNoWithVeto]).Add(airdropByVote[govtypes.OptionAbstain])))),
+	})
+	table.Append([]string{
+		"Percentage over total",
+		"",
+		humand(airdropByVote[govtypes.OptionEmpty].Quo(totalAirdrop)),
+		humand(airdropByVote[govtypes.OptionYes].Quo(totalAirdrop)),
+		humand(airdropByVote[govtypes.OptionNo].Quo(totalAirdrop)),
+		humand(airdropByVote[govtypes.OptionNoWithVeto].Quo(totalAirdrop)),
+		humand(airdropByVote[govtypes.OptionAbstain].Quo(totalAirdrop)),
+		humand(totalAirdrop.Sub(airdropByVote[govtypes.OptionEmpty].Add(airdropByVote[govtypes.OptionYes].Add(airdropByVote[govtypes.OptionNo]).Add(airdropByVote[govtypes.OptionNoWithVeto]).Add(airdropByVote[govtypes.OptionAbstain]))).Quo(totalAirdrop)),
 	})
 	table.Render()
 	// output
