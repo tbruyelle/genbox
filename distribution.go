@@ -92,8 +92,12 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 
 	// Compute percentage of Y, N and NWM amouts relative to activeVotesTotalAmt
 	relativePercs := make(map[govtypes.VoteOption]sdk.Dec)
-	for k, v := range amts {
-		relativePercs[k] = v.Quo(activeVotesTotalAmt)
+	for _, v := range []govtypes.VoteOption{
+		govtypes.OptionYes,
+		govtypes.OptionNo,
+		govtypes.OptionNoWithVeto,
+	} {
+		relativePercs[v] = amts[v].Quo(activeVotesTotalAmt)
 	}
 
 	// Compute blend
