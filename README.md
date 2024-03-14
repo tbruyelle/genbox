@@ -1,13 +1,14 @@
 # genbox
 
-Various tools to:
+Tools, Scripts and Code snippets for GovGen proposals.
 - validate governance data from a snapshot
 - turn data into a genesis
-- analyse distribution
+- balanced auto staking genesis
+- distribution analysis
 - etc...
 
 ```
-Usage: go run . [tally|genesis|...] PATH
+Usage: go run . COMMAND PATH
 ```
 
 Where PATH is a directory containing the following files:
@@ -15,8 +16,14 @@ Where PATH is a directory containing the following files:
 - `delegations.json` https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/delegations.json
 - `active_validators.json` https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/active_validators.json
 - `prop.json` https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/prop.json
+- `balances.json` https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/balances.json 
+- `auth_genesis.json` https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/auth_genesis.json
 
-Considering all these files downloaded in the `data/prop848` direcory, you can
+The way the data was extracted is documented [here](SNAPSHOT-EXTRACT.md).
+
+## Verify the tally
+
+Considering all these files downloaded in the `data/prop848` diretcory, you can
 compute the tally and compare it to the prop `FinalTallyResult` field.
 
 ```
@@ -39,98 +46,3 @@ Yes percent: 0.517062127500689774
 
 which shows that the tally calculated from these files is exactly the same as
 the tally from the prop stored in the blockchain data.
-
-# Data extraction
-
-To extract the data, 2 snapshots are needed, the one where the tally happened,
-to fetch the validators and the delegations, and the one just before, to get
-the votes (because votes are removed during the tally). Let's call these files
-- snapshot.json (where the tally happened)
-- snaphost-1.json (the block just before)
-
-## Get direct & indirect voters
-
-While direct voters are easy to extract, indirect voters must be determined by
-iterating over delegations and correlating them with validator votes.
-
-#### Get all direct voters
-
-```sh
-$ jq '[.app_state.gov.votes[] | select(.proposal_id == "848")]' snapshot-1.json > votes.json
-```
-
-We need to manually add the last votes from block where the tally takes place,
-for instance:
-
-```sh
-$ jq '. += [{
-  "option": "VOTE_OPTION_YES",
-  "options": [
-    {
-      "option": "VOTE_OPTION_YES",
-      "weight": "1.000000000000000000"
-    }
-  ],
-  "proposal_id": "848",
-  "voter": "cosmos1jq6rpkf233jq9h98tlarzk8w3pl3lx87sv3t28"
-}]' votes.json > votes_final.json
-```
-
-If the final votes have duplicates, because the user have voted more than one 
-time, we need to eliminate the first votes and keep only the last ones (maybe
-this is something that should be handled in the code).
-
-#### Get all delegations
-
-```sh
-$ jq '.app_state.staking.delegations' snapshot.json > delegations.json
-```
-
-#### Get active bonded validators
-
-```sh
-$ jq '.app_state.staking.validators' snapshot.json > validators.json
-```
-
-To have the active set, we need to:
-- Get the `max_validator` parameters:
-```sh
-$ jq '.app_state.staking.params.max_validators' snapshot.json
-180
-```
-- Filter out bonded validators
-- Sort by the `tokens` field (descending)
-- Limit to `max_validators`
-
-```sh
-$ jq '[.[] | select(.status == "BOND_STATUS_BONDED")] | sort_by(.tokens|tonumber) | reverse | .[:180]' validators.json > active_validators.json
-```
-
-Now we have only the active validators.
-
-This procedures follows the code of the [`staking.Keeper.IterateBondedValidatorsByPower()`][code-validators]
-function, which is used in the [`x/gov.Keeper.Tally()`][code-tally] function.
-
-### Get proposal
-
-The proposal is only used to verify the data.
-
-```sh
-jq '.app_state.gov.proposals[] | select(.proposal_id == "82") '  snapshot.json > prop.json
-```
-
-### Get balances
-
-```sh
-jq '.app_state.bank.balances' snapshot.json > balances.json
-```
-
-### Get account types
-
-For the `accounts` command only, the auth genesis is required to add the `Type`
-of the account in the `accounts.json` file.
-
-```
-jq '.app_state.auth' snapshot.json > auth_genesis.json
-```
-
