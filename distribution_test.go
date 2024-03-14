@@ -76,8 +76,8 @@ func TestDistribution(t *testing.T) {
 				return map[string]sdk.Dec{
 					"yes":        sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2)),
 					"abstain":    sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(blend)),
-					"no":         sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(noMultiplier)),
-					"noWithVeto": sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(noMultiplier).Mul(bonus)),
+					"no":         sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(noVotesMultiplier)),
+					"noWithVeto": sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(noVotesMultiplier).Mul(bonus)),
 					"didntVote":  sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(blend).Mul(malus)),
 				}
 			},
@@ -119,9 +119,9 @@ func TestDistribution(t *testing.T) {
 						// voted abstain
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(2, 1)).Mul(blend)).
 						// voted no
-						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(3, 1)).Mul(noMultiplier)).
+						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(3, 1)).Mul(noVotesMultiplier)).
 						// voted noWithVeto
-						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noMultiplier).Mul(bonus)),
+						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)),
 				}
 			},
 		},
@@ -174,9 +174,9 @@ func TestDistribution(t *testing.T) {
 						// from deleg who voted abstain
 						Add(sdk.NewDec(4).Mul(blend)).
 						// from deleg who voted no
-						Add(sdk.NewDec(5).Mul(noMultiplier)).
+						Add(sdk.NewDec(5).Mul(noVotesMultiplier)).
 						// from deleg who voted noWithVeto
-						Add(sdk.NewDec(6).Mul(noMultiplier).Mul(bonus)),
+						Add(sdk.NewDec(6).Mul(noVotesMultiplier).Mul(bonus)),
 				}
 			},
 		},
@@ -229,10 +229,10 @@ func TestDistribution(t *testing.T) {
 						// voted abstain
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(2, 1)).Mul(blend)).
 						// voted no
-						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(3, 1)).Mul(noMultiplier)).
-						Add(sdk.NewDec(2).Mul(noMultiplier)).
+						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(3, 1)).Mul(noVotesMultiplier)).
+						Add(sdk.NewDec(2).Mul(noVotesMultiplier)).
 						// voted noWithVeto
-						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noMultiplier).Mul(bonus)),
+						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)),
 				}
 			},
 		},
