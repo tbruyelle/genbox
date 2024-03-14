@@ -135,9 +135,6 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 			Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
 		totalAirdrop = totalAirdrop.Add(airdrop)
 		res[acc.Address] = airdrop
-
-		// track also liquid amounts for the absolute percentages
-		totalAmt = totalAmt.Add(acc.LiquidAmount)
 	}
 
 	fmt.Println("BLEND", blend)
