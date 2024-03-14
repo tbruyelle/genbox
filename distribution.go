@@ -134,7 +134,21 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	// Compute the absolute percentages
 	percs := make(map[govtypes.VoteOption]sdk.Dec)
 	for k, v := range amts {
-		percs[k] = v.Quo(totalAmt)
+		oldPerc = v.Quo(totalAmt)
+		newPerc := sdk.ZeroDec();
+		switch _; k {
+		   case govtypes.OptionYes:		      	
+			newPerc = oldPerc.Mul(yesVotesMultiplier)
+		   case govtypes.OptionNo:
+			newPerc = oldPerc.Mul(noVotesMultiplier)
+		   case govtypes.OptionNoWithVeto:
+			newPerc = oldPerc.Mul(noVotesMultiplier).Mul(bonus)
+	           case govtypes.OptionAbstain:
+			newPerc = oldPerc.Mul(blend)
+		   case govtypes.OptionEmpty:
+			newPerc = oldPerc.Mul(blend).Mul(malus)
+		}
+		percs[k] = newPerc
 	}
 	fmt.Println("BLEND", blend)
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
