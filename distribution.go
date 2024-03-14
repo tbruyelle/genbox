@@ -39,11 +39,11 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	for i := range accounts {
 		// init VotePercs
 		acc := &accounts[i]
-		acc.VotePercs = newVoteMap()
+		acc.votePercs = newVoteMap()
 		totalSupply = totalSupply.Add(acc.StakedAmount).Add(acc.LiquidAmount)
 		if acc.StakedAmount.IsZero() {
 			// No stake, consider non-voter
-			acc.VotePercs[govtypes.OptionEmpty] = sdk.NewDec(1)
+			acc.votePercs[govtypes.OptionEmpty] = sdk.NewDec(1)
 			continue
 		}
 		if len(acc.Vote) == 0 {
@@ -54,12 +54,12 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 				if len(del.Vote) == 0 {
 					// user didn't vote and delegation didn't either, use the UNSPECIFIED
 					// vote option to track it.
-					acc.VotePercs[govtypes.OptionEmpty] = acc.VotePercs[govtypes.OptionEmpty].Add(delPerc)
+					acc.votePercs[govtypes.OptionEmpty] = acc.votePercs[govtypes.OptionEmpty].Add(delPerc)
 					amts[govtypes.OptionEmpty] = amts[govtypes.OptionEmpty].Add(del.Amount)
 					totalAmt = totalAmt.Add(del.Amount)
 				} else {
 					for _, vote := range del.Vote {
-						acc.VotePercs[vote.Option] = acc.VotePercs[vote.Option].Add(vote.Weight.Mul(delPerc))
+						acc.votePercs[vote.Option] = acc.votePercs[vote.Option].Add(vote.Weight.Mul(delPerc))
 
 						amt := del.Amount.Mul(vote.Weight)
 						amts[vote.Option] = amts[vote.Option].Add(amt)
@@ -73,7 +73,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		} else {
 			// direct voter
 			for _, vote := range acc.Vote {
-				acc.VotePercs[vote.Option] = vote.Weight
+				acc.votePercs[vote.Option] = vote.Weight
 
 				amt := acc.StakedAmount.Mul(vote.Weight)
 				amts[vote.Option] = amts[vote.Option].Add(amt)
@@ -109,7 +109,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 			icfSlash = icfSlash.Add(acc.LiquidAmount).Add(acc.StakedAmount)
 			continue
 		}
-		acctPercs := acc.VotePercs
+		acctPercs := acc.votePercs
 		// stakingMultiplier details:
 		// Yes:		x yesVotesMultiplier
 		// No:         	x noVotesMultiplier

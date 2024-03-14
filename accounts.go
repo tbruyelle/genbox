@@ -15,7 +15,8 @@ type Account struct {
 	StakedAmount sdk.Dec
 	Vote         govtypes.WeightedVoteOptions
 	Delegations  []Delegation
-	VotePercs    map[govtypes.VoteOption]sdk.Dec
+
+	votePercs map[govtypes.VoteOption]sdk.Dec
 }
 
 type Delegation struct {
