@@ -28,7 +28,7 @@ The way the data was extracted is documented [here](SNAPSHOT-EXTRACT.md).
 
 ## Verify the tally
 
-Considering all these files downloaded in the `data/prop848` diretcory, you can
+Considering all these files downloaded in the `data/prop848` directory, you can
 compute the tally and compare it to the prop `FinalTallyResult` field.
 
 ```
