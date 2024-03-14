@@ -102,10 +102,12 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		Add(relativePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier))
 
 	totalAirdrop := sdk.ZeroDec()
+	icfSlash := sdk.ZeroDec()
 	res := make(map[string]sdk.Dec)
 	for _, acc := range accounts {
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
+			icfSlash = icfSlash.Add(acc.LiquidAmount).Add(acc.StakedAmount)
 			continue
 		}
 		acctPercs := acc.VotePercs
@@ -134,6 +136,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	fmt.Println("RATIO", totalAirdrop.Quo(totalSupply))
 	fmt.Println("RELATIVE PERCS", relativePercs)
 	fmt.Println("PERCS", percs)
+	fmt.Println("ICF SLASH", humand(icfSlash))
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
