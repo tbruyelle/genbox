@@ -22,14 +22,13 @@ var (
 		"cosmos1sufkm72dw7ua9crpfhhp0dqpyuggtlhdse98e7",
 		"cosmos1z6czaavlk6kjd48rpf58kqqw9ssad2uaxnazgl",
 	}
-	yesVotesMultiplier = sdk.NewDec(1)              // Y get x1
+	yesVotesMultiplier = sdk.OneDec()               // Y get x1
 	noVotesMultiplier  = sdk.NewDec(4)              // N & NWV get 1+x3
 	bonus              = sdk.NewDecWithPrec(103, 2) // 3% bonus
 	malus              = sdk.NewDecWithPrec(97, 2)  // -3% malus
 )
 
 func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
-	// Get amounts of Y, N and NWV
 	var (
 		amts                = newVoteMap()
 		totalAmt            = sdk.ZeroDec()
@@ -37,13 +36,13 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		totalSupply         = sdk.ZeroDec()
 	)
 	for i := range accounts {
-		// init VotePercs
 		acc := &accounts[i]
+		// init account.votePercs
 		acc.votePercs = newVoteMap()
 		totalSupply = totalSupply.Add(acc.StakedAmount).Add(acc.LiquidAmount)
 		if acc.StakedAmount.IsZero() {
 			// No stake, consider non-voter
-			acc.votePercs[govtypes.OptionEmpty] = sdk.NewDec(1)
+			acc.votePercs[govtypes.OptionEmpty] = sdk.OneDec()
 			continue
 		}
 		if len(acc.Vote) == 0 {
@@ -54,15 +53,15 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 				if len(del.Vote) == 0 {
 					// user didn't vote and delegation didn't either, use the UNSPECIFIED
 					// vote option to track it.
-					acc.votePercs[govtypes.OptionEmpty] = acc.votePercs[govtypes.OptionEmpty].Add(delPerc)
-					amts[govtypes.OptionEmpty] = amts[govtypes.OptionEmpty].Add(del.Amount)
+					acc.votePercs.add(govtypes.OptionEmpty, delPerc)
+					amts.add(govtypes.OptionEmpty, del.Amount)
 					totalAmt = totalAmt.Add(del.Amount)
 				} else {
 					for _, vote := range del.Vote {
-						acc.votePercs[vote.Option] = acc.votePercs[vote.Option].Add(vote.Weight.Mul(delPerc))
+						acc.votePercs.add(vote.Option, vote.Weight.Mul(delPerc))
 
 						amt := del.Amount.Mul(vote.Weight)
-						amts[vote.Option] = amts[vote.Option].Add(amt)
+						amts.add(vote.Option, amt)
 						totalAmt = totalAmt.Add(amt)
 						if vote.Option != govtypes.OptionAbstain {
 							activeVotesTotalAmt = activeVotesTotalAmt.Add(amt)
@@ -76,7 +75,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 				acc.votePercs[vote.Option] = vote.Weight
 
 				amt := acc.StakedAmount.Mul(vote.Weight)
-				amts[vote.Option] = amts[vote.Option].Add(amt)
+				amts.add(vote.Option, amt)
 				totalAmt = totalAmt.Add(amt)
 				if vote.Option != govtypes.OptionAbstain {
 					activeVotesTotalAmt = activeVotesTotalAmt.Add(amt)
@@ -109,25 +108,24 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 			icfSlash = icfSlash.Add(acc.LiquidAmount).Add(acc.StakedAmount)
 			continue
 		}
-		acctPercs := acc.votePercs
-		// stakingMultiplier details:
-		// Yes:		x yesVotesMultiplier
-		// No:         	x noVotesMultiplier
-		// NoWithVeto: 	x noVotesMultiplier x bonus
-		// Abstain:    	x blend
-		// Didn't vote: x blend x malus
 		var (
-			yesAirdropAmt        = acctPercs[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
-			noAirdropAmt         = acctPercs[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
-			noWithVetoAirdropAmt = acctPercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
-			abstainAirdropAmt    = acctPercs[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
-			noVoteAirdropAmt     = acctPercs[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
+			// stakingMultiplier details:
+			// Yes:         x yesVotesMultiplier
+			// No:         	x noVotesMultiplier
+			// NoWithVeto: 	x noVotesMultiplier x bonus
+			// Abstain:    	x blend
+			// Didn't vote: x blend x malus
+			yesAirdropAmt        = acc.votePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
+			noAirdropAmt         = acc.votePercs[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
+			noWithVetoAirdropAmt = acc.votePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
+			abstainAirdropAmt    = acc.votePercs[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
+			noVoteAirdropAmt     = acc.votePercs[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
 		)
-		airdropByVote[govtypes.OptionYes] = airdropByVote[govtypes.OptionYes].Add(yesAirdropAmt)
-		airdropByVote[govtypes.OptionNo] = airdropByVote[govtypes.OptionNo].Add(noAirdropAmt)
-		airdropByVote[govtypes.OptionNoWithVeto] = airdropByVote[govtypes.OptionNoWithVeto].Add(noWithVetoAirdropAmt)
-		airdropByVote[govtypes.OptionAbstain] = airdropByVote[govtypes.OptionAbstain].Add(abstainAirdropAmt)
-		airdropByVote[govtypes.OptionEmpty] = airdropByVote[govtypes.OptionEmpty].Add(noVoteAirdropAmt)
+		airdropByVote.add(govtypes.OptionYes, yesAirdropAmt)
+		airdropByVote.add(govtypes.OptionNo, noAirdropAmt)
+		airdropByVote.add(govtypes.OptionNoWithVeto, noWithVetoAirdropAmt)
+		airdropByVote.add(govtypes.OptionAbstain, abstainAirdropAmt)
+		airdropByVote.add(govtypes.OptionEmpty, noVoteAirdropAmt)
 
 		// Liquid amount gets the same multiplier as those who didn't vote.
 		liquidMultiplier := blend.Mul(malus)
@@ -187,12 +185,33 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	return res, blend, nil
 }
 
-func newVoteMap() map[govtypes.VoteOption]sdk.Dec {
-	return map[govtypes.VoteOption]sdk.Dec{
-		govtypes.OptionYes:        sdk.ZeroDec(),
-		govtypes.OptionNo:         sdk.ZeroDec(),
-		govtypes.OptionNoWithVeto: sdk.ZeroDec(),
-		govtypes.OptionAbstain:    sdk.ZeroDec(),
-		govtypes.OptionEmpty:      sdk.ZeroDec(),
+// convienient type for manipulating vote counts.
+type voteMap map[govtypes.VoteOption]sdk.Dec
+
+var voteOptions = []govtypes.VoteOption{
+	govtypes.OptionEmpty,
+	govtypes.OptionYes,
+	govtypes.OptionAbstain,
+	govtypes.OptionNo,
+	govtypes.OptionNoWithVeto,
+}
+
+func newVoteMap() voteMap {
+	m := make(map[govtypes.VoteOption]sdk.Dec)
+	for _, v := range voteOptions {
+		m[v] = sdk.ZeroDec()
 	}
+	return m
+}
+
+func (m voteMap) add(v govtypes.VoteOption, d sdk.Dec) {
+	m[v] = m[v].Add(d)
+}
+
+func (m voteMap) total() sdk.Dec {
+	d := sdk.ZeroDec()
+	for _, v := range voteOptions {
+		d = d.Add(m[v])
+	}
+	return d
 }
