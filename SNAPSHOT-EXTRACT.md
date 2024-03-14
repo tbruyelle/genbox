@@ -1,10 +1,10 @@
 # Snapshot data extraction
 
-To extract the data, 2 snapshots are needed, the one where the tally happened,
-to fetch the validators and the delegations, and the one just before, to get
-the votes (because votes are removed during the tally). Let's call these files
+To extract the data, we need 2 snapshots, the one when the count happened to
+get the validators and delegations, and the one just before to get the votes
+(because votes are removed during the count). Let's call these files:
+- pre-tally-snaphost.json (just before the tally)
 - tally-snapshot.json (where the tally happened)
-- pre-tally-snaphost.json (the block just before)
 
 ## Pre-tally Block [18010657]
 
