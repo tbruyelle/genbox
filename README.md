@@ -21,6 +21,11 @@ Where PATH is a directory containing the following files:
 
 The way the data was extracted is documented [here](SNAPSHOT-EXTRACT.md).
 
+> [!NOTE]
+> While this documentation is related to proposal 848, you can easily use it
+> for any other proposal.
+> The code itself isn't related to proposal 848.
+
 ## Verify the tally
 
 Considering all these files downloaded in the `data/prop848` diretcory, you can
