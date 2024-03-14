@@ -121,20 +121,28 @@ Finally, let's compute the $ATONE distribution:
 $ go run . distribution data/prop848/
 ```
 
-The command above will output this table, which shows the distribution:
-+-----------------------+-------------+--------------+-------------+-------------+------------+------------+-------------+
-|                       |    TOTAL    | DID NOT VOTE |     YES     |     NO
-| NOWITHVETO |  ABSTAIN   | NOT STAKED  |
-+-----------------------+-------------+--------------+-------------+-------------+------------+------------+-------------+
-| Distributed $ATONE    | 809,415,611 |  159,070,512 | 167,571,170 |
-132,097,367 | 27,754,207 | 84,893,556 | 238,028,799 |
-| Percentage over total |             | 20%          | 21%         | 16%
-| 3%         | 10%        | 29%         |
-+-----------------------+-------------+--------------+-------------+-------------+------------+------------+-------------+
+The command above will output the resulting data and a table, which shows the distribution.
 
 But more importantly, the command will create a file
 `data/prop848/airdrop.json` which you can find [here][airdrop]. The file lists
 all accounts and their relative future $ATONE balance.
+
+The resulting supply will be of 809,415,611 $ATONE, distributed as follows:
+
+|                       |  DID NOT VOTE  |    YES    |  ABSTAIN |    NO    |   NWV    | NOT STAKED |
+|:---------------------:|:--------------:|:---------:|:--------:|:--------:|:--------:|:----------:|
+|  Distributed $ATONE   |   ~158.9 M     | ~63.75 M  | ~86.29 M | ~213.4 M | ~47.91 M | ~239.17 M  |
+| Percentage over total |    ~19.6%      |  ~7.8%    |  ~10.6%  |  ~26.4%  |   ~5.9   |  ~29.5%    |
+
+The computed `B` value - in the code is called `blend` - is `~2.46`. While the
+increase of $ATONE supply with respect to the $ATOM supply will be of `~2.36`.
+
+> [!NOTE]
+> The final ratio of increase of $ATONE supply with respect to $ATOM *should* be 
+> close to B, since B is supposed to be "neutral" with respect to how the
+> supply increases due to multipliers for active voters. The $ATOM that is used
+> to compute the equivalent $ATONE with B as multiplier will have a resulting
+> neutral distribution, not diluted, nor rewarded
 
 [001]: https://github.com/giunatale/govgen-proposals/blob/giunatale/atone_distribution/001_ATONE_DISTRIBUTION.md
 [airdrop]: https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/airdrop.json

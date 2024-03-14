@@ -141,56 +141,28 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		// track also liquid amounts for the absolute percentages
 		totalAmt = totalAmt.Add(acc.LiquidAmount)
 	}
-	// Compute the absolute percentages
-	percs := make(map[govtypes.VoteOption]sdk.Dec)
-	tmp := sdk.ZeroDec()
-	tmp2 := sdk.ZeroDec()
-	for k, v := range amts {
-		oldPerc := v.Quo(totalAmt)
-		newPerc := sdk.ZeroDec()
-		switch k {
-		case govtypes.OptionYes:
-			newPerc = oldPerc.Mul(yesVotesMultiplier)
-		case govtypes.OptionNo:
-			newPerc = oldPerc.Mul(noVotesMultiplier)
-		case govtypes.OptionNoWithVeto:
-			newPerc = oldPerc.Mul(noVotesMultiplier).Mul(bonus)
-		case govtypes.OptionAbstain:
-			newPerc = oldPerc.Mul(blend)
-		case govtypes.OptionEmpty:
-			newPerc = oldPerc.Mul(blend).Mul(malus)
-		}
-		tmp = tmp.Add(newPerc)
-		tmp2 = tmp2.Add(oldPerc)
-		percs[k] = newPerc
-	}
-	tmp = tmp.Add(sdk.OneDec().Sub(tmp2).Mul(blend).Mul(malus))
-	for k := range amts {
-		percs[k] = percs[k].Quo(tmp)
-	}
 
 	fmt.Println("BLEND", blend)
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
 	fmt.Println("TOTAL AIRDROP", humand(totalAirdrop))
 	fmt.Println("RATIO", totalAirdrop.Quo(totalSupply))
 	fmt.Println("RELATIVE PERCS", relativePercs)
-	fmt.Println("PERCS", percs)
 	fmt.Println("ICF SLASH", humand(icfSlash))
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
 	var (
-		totalDidntVoteAirdrop  = totalAirdrop.Mul(percs[govtypes.OptionEmpty])
-		totalYesAirdrop        = totalAirdrop.Mul(percs[govtypes.OptionYes])
-		totalNoAirdrop         = totalAirdrop.Mul(percs[govtypes.OptionNo])
-		totalNoWithVetoAirdrop = totalAirdrop.Mul(percs[govtypes.OptionNoWithVeto])
-		totalAbstainAirdrop    = totalAirdrop.Mul(percs[govtypes.OptionAbstain])
+		totalDidntVoteAirdrop  = airdropByVote[govtypes.OptionEmpty]
+		totalYesAirdrop        = airdropByVote[govtypes.OptionYes]
+		totalNoAirdrop         = airdropByVote[govtypes.OptionNo]
+		totalNoWithVetoAirdrop = airdropByVote[govtypes.OptionNoWithVeto]
+		totalAbstainAirdrop    = airdropByVote[govtypes.OptionAbstain]
 		totalStakedAirdrop     = totalDidntVoteAirdrop.Add(totalYesAirdrop).
 					Add(totalNoAirdrop).Add(totalNoWithVetoAirdrop).Add(totalAbstainAirdrop)
 		totalUnstakedAirdrop = totalAirdrop.Sub(totalStakedAirdrop)
 	)
 	table.Append([]string{
-		"Old Distributed $ATONE",
+		"Distributed $ATONE",
 		humand(totalAirdrop),
 		humand(totalDidntVoteAirdrop),
 		humand(totalYesAirdrop),
@@ -200,7 +172,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		humand(totalUnstakedAirdrop),
 	})
 	table.Append([]string{
-		"Old Percentage over total",
+		"Percentage over total",
 		"",
 		humanPercent(totalDidntVoteAirdrop.Quo(totalAirdrop)),
 		humanPercent(totalYesAirdrop.Quo(totalAirdrop)),
@@ -208,26 +180,6 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 		humanPercent(totalNoWithVetoAirdrop.Quo(totalAirdrop)),
 		humanPercent(totalAbstainAirdrop.Quo(totalAirdrop)),
 		humanPercent(totalUnstakedAirdrop.Quo(totalAirdrop)),
-	})
-	table.Append([]string{
-		"Distributed $ATONE",
-		humand(totalAirdrop),
-		humand(airdropByVote[govtypes.OptionEmpty]),
-		humand(airdropByVote[govtypes.OptionYes]),
-		humand(airdropByVote[govtypes.OptionNo]),
-		humand(airdropByVote[govtypes.OptionNoWithVeto]),
-		humand(airdropByVote[govtypes.OptionAbstain]),
-		humand(totalAirdrop.Sub(airdropByVote[govtypes.OptionEmpty].Add(airdropByVote[govtypes.OptionYes].Add(airdropByVote[govtypes.OptionNo]).Add(airdropByVote[govtypes.OptionNoWithVeto]).Add(airdropByVote[govtypes.OptionAbstain])))),
-	})
-	table.Append([]string{
-		"Percentage over total",
-		"",
-		humand(airdropByVote[govtypes.OptionEmpty].Quo(totalAirdrop)),
-		humand(airdropByVote[govtypes.OptionYes].Quo(totalAirdrop)),
-		humand(airdropByVote[govtypes.OptionNo].Quo(totalAirdrop)),
-		humand(airdropByVote[govtypes.OptionNoWithVeto].Quo(totalAirdrop)),
-		humand(airdropByVote[govtypes.OptionAbstain].Quo(totalAirdrop)),
-		humand(totalAirdrop.Sub(airdropByVote[govtypes.OptionEmpty].Add(airdropByVote[govtypes.OptionYes].Add(airdropByVote[govtypes.OptionNo]).Add(airdropByVote[govtypes.OptionNoWithVeto]).Add(airdropByVote[govtypes.OptionAbstain]))).Quo(totalAirdrop)),
 	})
 	table.Render()
 	// output
