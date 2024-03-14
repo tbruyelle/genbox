@@ -22,18 +22,19 @@ var (
 		"cosmos1sufkm72dw7ua9crpfhhp0dqpyuggtlhdse98e7",
 		"cosmos1z6czaavlk6kjd48rpf58kqqw9ssad2uaxnazgl",
 	}
-	yesMultiplier = sdk.NewDec(1)              // Y get x1
-	noMultiplier  = sdk.NewDec(4)              // N & NWV get 1+x3
-	bonus         = sdk.NewDecWithPrec(103, 2) // 3% bonus
-	malus         = sdk.NewDecWithPrec(97, 2)  // -3% malus
+	yesVotesMultiplier = sdk.NewDec(1)              // Y get x1
+	noVotesMultiplier  = sdk.NewDec(4)              // N & NWV get 1+x3
+	bonus              = sdk.NewDecWithPrec(103, 2) // 3% bonus
+	malus              = sdk.NewDecWithPrec(97, 2)  // -3% malus
 )
 
 func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	// Get amounts of Y, N and NWV
 	var (
-		amts        = newVoteMap()
-		totalAmt    = sdk.ZeroDec()
-		totalSupply = sdk.ZeroDec()
+		amts                = newVoteMap()
+		totalAmt            = sdk.ZeroDec()
+		activeVotesTotalAmt = sdk.ZeroDec()
+		totalSupply         = sdk.ZeroDec()
 	)
 	for i := range accounts {
 		// init VotePercs
@@ -63,6 +64,9 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 						amt := del.Amount.Mul(vote.Weight)
 						amts[vote.Option] = amts[vote.Option].Add(amt)
 						totalAmt = totalAmt.Add(amt)
+						if vote.Option != govtypes.OptionAbstain {
+							activeVotesTotalAmt = activeVotesTotalAmt.Add(amt)
+						}
 					}
 				}
 			}
@@ -74,18 +78,28 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 				amt := acc.StakedAmount.Mul(vote.Weight)
 				amts[vote.Option] = amts[vote.Option].Add(amt)
 				totalAmt = totalAmt.Add(amt)
+				if vote.Option != govtypes.OptionAbstain {
+					activeVotesTotalAmt = activeVotesTotalAmt.Add(amt)
+				}
 			}
 		}
 	}
-	// Compute percentage of Y, N and NWM amouts relative to totalAmt
+	// Compute the absolute percentages
 	percs := make(map[govtypes.VoteOption]sdk.Dec)
 	for k, v := range amts {
 		percs[k] = v.Quo(totalAmt)
 	}
+
+	// Compute percentage of Y, N and NWM amouts relative to activeVotesTotalAmt
+	relativePercs := make(map[govtypes.VoteOption]sdk.Dec)
+	for k, v := range amts {
+		relativePercs[k] = v.Quo(activeVotesTotalAmt)
+	}
+
 	// Compute blend
-	blend := percs[govtypes.OptionYes].
-		Add(percs[govtypes.OptionNo].Mul(noMultiplier)).
-		Add(percs[govtypes.OptionNoWithVeto].Mul(noMultiplier))
+	blend := relativePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).
+		Add(relativePercs[govtypes.OptionNo].Mul(noVotesMultiplier)).
+		Add(relativePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier))
 
 	totalAirdrop := sdk.ZeroDec()
 	res := make(map[string]sdk.Dec)
@@ -94,18 +108,18 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 			// Slash ICF
 			continue
 		}
-		percs := acc.VotePercs
+		acctPercs := acc.VotePercs
 		// stakingMultiplier details:
-		// Yes:					x 1
-		// No:         	x noMultiplier
-		// NoWithVeto: 	x noMultiplier x bonus
+		// Yes:		x yesVotesMultiplier
+		// No:         	x noVotesMultiplier
+		// NoWithVeto: 	x noVotesMultiplier x bonus
 		// Abstain:    	x blend
 		// Didn't vote: x blend x malus
-		stakingMultiplier := percs[govtypes.OptionYes].
-			Add(percs[govtypes.OptionNo].Mul(noMultiplier)).
-			Add(percs[govtypes.OptionNoWithVeto].Mul(noMultiplier).Mul(bonus)).
-			Add(percs[govtypes.OptionAbstain].Mul(blend)).
-			Add(percs[govtypes.OptionEmpty].Mul(blend).Mul(malus))
+		stakingMultiplier := acctPercs[govtypes.OptionYes].Mul(yesVotesMultiplier).
+			Add(acctPercs[govtypes.OptionNo].Mul(noVotesMultiplier)).
+			Add(acctPercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus)).
+			Add(acctPercs[govtypes.OptionAbstain].Mul(blend)).
+			Add(acctPercs[govtypes.OptionEmpty].Mul(blend).Mul(malus))
 		// Liquid amount gets the same multiplier as those who didn't vote.
 		liquidMultiplier := blend.Mul(malus)
 
@@ -118,6 +132,7 @@ func distribution(accounts []Account) (map[string]sdk.Dec, sdk.Dec, error) {
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
 	fmt.Println("TOTAL AIRDROP", humand(totalAirdrop))
 	fmt.Println("RATIO", totalAirdrop.Quo(totalSupply))
+	fmt.Println("RELATIVE PERCS", relativePercs)
 	fmt.Println("PERCS", percs)
 
 	table := tablewriter.NewWriter(os.Stdout)
