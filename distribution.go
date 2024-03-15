@@ -44,10 +44,8 @@ type airdrop struct {
 
 func distribution(accounts []Account) (airdrop, error) {
 	var (
-		amts                = newVoteMap()
-		totalAmt            = sdk.ZeroDec()
-		activeVotesTotalAmt = sdk.ZeroDec()
-		totalSupply         = sdk.ZeroDec()
+		amts        = newVoteMap()
+		totalSupply = sdk.ZeroDec()
 	)
 	for i := range accounts {
 		acc := &accounts[i]
@@ -69,17 +67,12 @@ func distribution(accounts []Account) (airdrop, error) {
 					// vote option to track it.
 					acc.votePercs.add(govtypes.OptionEmpty, delPerc)
 					amts.add(govtypes.OptionEmpty, del.Amount)
-					totalAmt = totalAmt.Add(del.Amount)
 				} else {
 					for _, vote := range del.Vote {
 						acc.votePercs.add(vote.Option, vote.Weight.Mul(delPerc))
 
 						amt := del.Amount.Mul(vote.Weight)
 						amts.add(vote.Option, amt)
-						totalAmt = totalAmt.Add(amt)
-						if vote.Option != govtypes.OptionAbstain {
-							activeVotesTotalAmt = activeVotesTotalAmt.Add(amt)
-						}
 					}
 				}
 			}
@@ -90,14 +83,11 @@ func distribution(accounts []Account) (airdrop, error) {
 
 				amt := acc.StakedAmount.Mul(vote.Weight)
 				amts.add(vote.Option, amt)
-				totalAmt = totalAmt.Add(amt)
-				if vote.Option != govtypes.OptionAbstain {
-					activeVotesTotalAmt = activeVotesTotalAmt.Add(amt)
-				}
 			}
 		}
 	}
 	// Compute percentage of Y, N and NWM amouts relative to activeVotesTotalAmt
+	activeVotesTotalAmt := amts.totalActive()
 	relativePercs := make(map[govtypes.VoteOption]sdk.Dec)
 	for _, v := range []govtypes.VoteOption{
 		govtypes.OptionYes,
@@ -178,17 +168,24 @@ func distribution(accounts []Account) (airdrop, error) {
 // convienient type for manipulating vote counts.
 type voteMap map[govtypes.VoteOption]sdk.Dec
 
-var voteOptions = []govtypes.VoteOption{
-	govtypes.OptionEmpty,
-	govtypes.OptionYes,
-	govtypes.OptionAbstain,
-	govtypes.OptionNo,
-	govtypes.OptionNoWithVeto,
-}
+var (
+	allVoteOptions = []govtypes.VoteOption{
+		govtypes.OptionEmpty,
+		govtypes.OptionYes,
+		govtypes.OptionAbstain,
+		govtypes.OptionNo,
+		govtypes.OptionNoWithVeto,
+	}
+	activeVoteOptions = []govtypes.VoteOption{
+		govtypes.OptionYes,
+		govtypes.OptionNo,
+		govtypes.OptionNoWithVeto,
+	}
+)
 
 func newVoteMap() voteMap {
 	m := make(map[govtypes.VoteOption]sdk.Dec)
-	for _, v := range voteOptions {
+	for _, v := range allVoteOptions {
 		m[v] = sdk.ZeroDec()
 	}
 	return m
@@ -199,8 +196,20 @@ func (m voteMap) add(v govtypes.VoteOption, d sdk.Dec) {
 }
 
 func (m voteMap) total() sdk.Dec {
+	return m.totalForVotes(allVoteOptions...)
+}
+
+func (m voteMap) totalActive() sdk.Dec {
+	return m.totalForVotes(activeVoteOptions...)
+}
+
+func (m voteMap) totalForVotes(vs ...govtypes.VoteOption) sdk.Dec {
+	if len(vs) == 0 {
+		// No vote options provided, use all vote options
+		vs = allVoteOptions
+	}
 	d := sdk.ZeroDec()
-	for _, v := range voteOptions {
+	for _, v := range vs {
 		d = d.Add(m[v])
 	}
 	return d
