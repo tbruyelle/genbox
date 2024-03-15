@@ -44,66 +44,16 @@ type airdrop struct {
 
 func distribution(accounts []Account) (airdrop, error) {
 	var (
-		activeVoteAmts = newVoteMap()
-		totalSupply    = sdk.ZeroDec()
+		blend    = computeBlend(accounts)
+		icfSlash = sdk.ZeroDec()
+		airdrop  = airdrop{
+			addresses: make(map[string]sdk.Int),
+			blend:     blend,
+			supply:    sdk.ZeroDec(),
+			votes:     newVoteMap(),
+			unstaked:  sdk.ZeroDec(),
+		}
 	)
-	for i := range accounts {
-		acc := &accounts[i]
-		// init account.votePercs
-		acc.votePercs = newVoteMap()
-		totalSupply = totalSupply.Add(acc.StakedAmount).Add(acc.LiquidAmount)
-		if acc.StakedAmount.IsZero() {
-			// No stake, consider non-voter
-			acc.votePercs[govtypes.OptionEmpty] = sdk.OneDec()
-			continue
-		}
-		if len(acc.Vote) == 0 {
-			// not a direct voter, check for delegated votes
-			for _, del := range acc.Delegations {
-				// Compute percentage of the delegation over the total staked amount
-				delPerc := del.Amount.Quo(acc.StakedAmount)
-				if len(del.Vote) == 0 {
-					// user didn't vote and delegation didn't either, use the UNSPECIFIED
-					// vote option to track it.
-					acc.votePercs.add(govtypes.OptionEmpty, delPerc)
-				} else {
-					for _, vote := range del.Vote {
-						acc.votePercs.add(vote.Option, vote.Weight.Mul(delPerc))
-
-						if vote.Option != govtypes.OptionAbstain {
-							activeVoteAmts.add(vote.Option, del.Amount.Mul(vote.Weight))
-						}
-					}
-				}
-			}
-		} else {
-			// direct voter
-			for _, vote := range acc.Vote {
-				acc.votePercs[vote.Option] = vote.Weight
-
-				if vote.Option != govtypes.OptionAbstain {
-					activeVoteAmts.add(vote.Option, acc.StakedAmount.Mul(vote.Weight))
-				}
-			}
-		}
-	}
-	// Compute percentage of Y, N and NWM amouts relative to activeVotesTotalAmt
-	activePercs := activeVoteAmts.toPercentages()
-
-	// Compute blend
-	blend := activePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).
-		Add(activePercs[govtypes.OptionNo].Mul(noVotesMultiplier)).
-		Add(activePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier))
-
-	// Now that blend is computed, loop again on accounts and apply the multipliers.
-	icfSlash := sdk.ZeroDec()
-	airdrop := airdrop{
-		addresses: make(map[string]sdk.Int),
-		blend:     blend,
-		supply:    sdk.ZeroDec(),
-		votes:     newVoteMap(),
-		unstaked:  sdk.ZeroDec(),
-	}
 	for _, acc := range accounts {
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
@@ -146,16 +96,64 @@ func distribution(accounts []Account) (airdrop, error) {
 	}
 
 	fmt.Println("BLEND", blend)
-	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
 	fmt.Println("TOTAL AIRDROP", humand(airdrop.supply))
-	fmt.Println("RATIO", airdrop.supply.Quo(totalSupply))
-	fmt.Println("ACTIVE PERCS", activePercs)
 	fmt.Println("ICF SLASH", humand(icfSlash))
 
 	return airdrop, nil
 }
 
-// convienient type for manipulating vote counts.
+func computeBlend(accounts []Account) sdk.Dec {
+	activeVoteAmts := newVoteMap()
+	for i := range accounts {
+		acc := &accounts[i]
+		// init account.votePercs
+		acc.votePercs = newVoteMap()
+		if acc.StakedAmount.IsZero() {
+			// No stake, consider non-voter
+			acc.votePercs[govtypes.OptionEmpty] = sdk.OneDec()
+			continue
+		}
+		if len(acc.Vote) == 0 {
+			// not a direct voter, check for delegated votes
+			for _, del := range acc.Delegations {
+				// Compute percentage of the delegation over the total staked amount
+				delPerc := del.Amount.Quo(acc.StakedAmount)
+				if len(del.Vote) == 0 {
+					// user didn't vote and delegation didn't either, use the UNSPECIFIED
+					// vote option to track it.
+					acc.votePercs.add(govtypes.OptionEmpty, delPerc)
+				} else {
+					for _, vote := range del.Vote {
+						acc.votePercs.add(vote.Option, vote.Weight.Mul(delPerc))
+
+						if vote.Option != govtypes.OptionAbstain {
+							activeVoteAmts.add(vote.Option, del.Amount.Mul(vote.Weight))
+						}
+					}
+				}
+			}
+		} else {
+			// direct voter
+			for _, vote := range acc.Vote {
+				acc.votePercs[vote.Option] = vote.Weight
+
+				if vote.Option != govtypes.OptionAbstain {
+					activeVoteAmts.add(vote.Option, acc.StakedAmount.Mul(vote.Weight))
+				}
+			}
+		}
+	}
+	// Compute percentage of Y, N and NWM amouts relative to activeVotesTotalAmt
+	activePercs := activeVoteAmts.toPercentages()
+
+	// Compute blend
+	blend := activePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).
+		Add(activePercs[govtypes.OptionNo].Mul(noVotesMultiplier)).
+		Add(activePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier))
+	return blend
+}
+
+// convenient type for manipulating vote counts.
 type voteMap map[govtypes.VoteOption]sdk.Dec
 
 var (
