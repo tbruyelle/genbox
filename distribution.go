@@ -127,9 +127,10 @@ func distribution(accounts []Account) (airdrop, error) {
 			liquidMultiplier = blend.Mul(malus)
 
 			// total airdrop for this account
-			airdropAmt = acc.LiquidAmount.Mul(liquidMultiplier).
-					Add(yesAirdropAmt).Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
+			liquidAirdrop = acc.LiquidAmount.Mul(liquidMultiplier)
+			stakedAirdrop = yesAirdropAmt.Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
 					Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
+			airdropAmt = liquidAirdrop.Add(stakedAirdrop)
 		)
 		// increment airdrop votes
 		airdrop.votes.add(govtypes.OptionYes, yesAirdropAmt)
@@ -139,20 +140,10 @@ func distribution(accounts []Account) (airdrop, error) {
 		airdrop.votes.add(govtypes.OptionEmpty, noVoteAirdropAmt)
 		// increment airdrop supply
 		airdrop.supply = airdrop.supply.Add(airdropAmt)
+		airdrop.unstaked = airdrop.unstaked.Add(liquidAirdrop)
 		// add addresse and amount
 		airdrop.addresses[acc.Address] = airdropAmt.TruncateInt()
 	}
-
-	var (
-		totalDidntVoteAirdrop  = airdrop.votes[govtypes.OptionEmpty]
-		totalYesAirdrop        = airdrop.votes[govtypes.OptionYes]
-		totalNoAirdrop         = airdrop.votes[govtypes.OptionNo]
-		totalNoWithVetoAirdrop = airdrop.votes[govtypes.OptionNoWithVeto]
-		totalAbstainAirdrop    = airdrop.votes[govtypes.OptionAbstain]
-		totalStakedAirdrop     = totalDidntVoteAirdrop.Add(totalYesAirdrop).
-					Add(totalNoAirdrop).Add(totalNoWithVetoAirdrop).Add(totalAbstainAirdrop)
-	)
-	airdrop.unstaked = airdrop.supply.Sub(totalStakedAirdrop)
 
 	fmt.Println("BLEND", blend)
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
