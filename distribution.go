@@ -101,6 +101,7 @@ func distribution(accounts []Account) (airdrop, error) {
 	return airdrop, nil
 }
 
+// computeBlend returns the blend and fills the accounts votePercs field.
 func computeBlend(accounts []Account) sdk.Dec {
 	activeVoteAmts := newVoteMap()
 	for i := range accounts {
@@ -142,7 +143,7 @@ func computeBlend(accounts []Account) sdk.Dec {
 			}
 		}
 	}
-	// Compute percentage of Y, N and NWM amouts relative to activeVotesTotalAmt
+	// Compute percentage of Y, N and NWM amouts relative to activeVoteAmts
 	activePercs := activeVoteAmts.toPercentages()
 
 	// Compute blend
