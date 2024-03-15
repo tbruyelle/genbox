@@ -1,136 +1,181 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 
-	h "github.com/dustin/go-humanize"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
-var commands = []string{"tally", "accounts", "genesis", "autostaking", "distribution"}
-
 func main() {
-	if len(os.Args) != 3 || !slices.Contains(commands, os.Args[1]) {
-		fmt.Fprintf(os.Stderr, "Usage:\n%s [%s] [datapath]\n",
-			filepath.Base(os.Args[0]), strings.Join(commands, "|"))
-		os.Exit(1)
+	rootCmd := &ffcli.Command{
+		ShortUsage:  "govbox <subcommand> <path>",
+		ShortHelp:   "Set of commands for GovGen proposals.",
+		Subcommands: []*ffcli.Command{tallyCmd, accountsCmd, genesisCmd, autoStakingCmd, distributionCmd},
+		Exec: func(ctx context.Context, args []string) error {
+			return flag.ErrHelp
+		},
 	}
-
-	var (
-		command         = os.Args[1]
-		datapath        = os.Args[2]
-		accountsFile    = filepath.Join(datapath, "accounts.json")
-		bankGenesisFile = filepath.Join(datapath, "bank.genesis")
-		airdropFile     = filepath.Join(datapath, "airdrop.json")
-	)
-	switch command {
-	case "genesis":
-		accounts, err := parseAccounts(accountsFile)
-		if err != nil {
-			panic(err)
-		}
-		if err := writeBankGenesis(accounts, bankGenesisFile); err != nil {
-			panic(err)
-		}
-		fmt.Printf("%s file created.\n", bankGenesisFile)
-
-	case "autostaking":
-		err := autoStaking(filepath.Join(datapath, "genesis.json"))
-		if err != nil {
-			panic(err)
-		}
-
-	case "distribution":
-		accounts, err := parseAccounts(accountsFile)
-		if err != nil {
-			panic(err)
-		}
-		airdrop, err := distribution(accounts)
-		if err != nil {
-			panic(err)
-		}
-		bz, err := json.MarshalIndent(airdrop.addresses, "", "  ")
-		if err != nil {
-			panic(err)
-		}
-		if err := os.WriteFile(airdropFile, bz, 0o666); err != nil {
-			panic(err)
-		}
-		printAirdropStats(airdrop)
-
-	case "tally":
-		votesByAddr, err := parseVotesByAddr(datapath)
-		if err != nil {
-			panic(err)
-		}
-		valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
-		if err != nil {
-			panic(err)
-		}
-		delegsByAddr, err := parseDelegationsByAddr(datapath)
-		if err != nil {
-			panic(err)
-		}
-		results, totalVotingPower := tally(votesByAddr, valsByAddr, delegsByAddr)
-		printTallyResults(results, totalVotingPower, parseProp(datapath))
-
-	case "accounts":
-		votesByAddr, err := parseVotesByAddr(datapath)
-		if err != nil {
-			panic(err)
-		}
-		valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
-		if err != nil {
-			panic(err)
-		}
-		delegsByAddr, err := parseDelegationsByAddr(datapath)
-		if err != nil {
-			panic(err)
-		}
-		balancesByAddr, err := parseBalancesByAddr(datapath, "uatom")
-		if err != nil {
-			panic(err)
-		}
-		accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
-		if err != nil {
-			panic(err)
-		}
-
-		accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr, accountTypesByAddr)
-
-		bz, err := json.MarshalIndent(accounts, "", "  ")
-		if err != nil {
-			panic(err)
-		}
-		if err := os.WriteFile(accountsFile, bz, 0o666); err != nil {
-			panic(err)
-		}
-		fmt.Printf("%s file created.\n", accountsFile)
+	err := rootCmd.ParseAndRun(context.Background(), os.Args[1:])
+	if err != nil && err != flag.ErrHelp {
+		log.Fatal(err)
 	}
 }
 
-const M = 1_000_000 // 1 million
+var (
+	tallyCmd = &ffcli.Command{
+		Name:       "tally",
+		ShortUsage: "govbox tally <path>",
+		ShortHelp:  "Print the comparison between the tally result and the tally computed from <path>",
+		Exec: func(ctx context.Context, args []string) error {
+			if len(args) == 0 {
+				return flag.ErrHelp
+			}
+			datapath := args[0]
+			votesByAddr, err := parseVotesByAddr(datapath)
+			if err != nil {
+				return err
+			}
+			valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
+			if err != nil {
+				return err
+			}
+			delegsByAddr, err := parseDelegationsByAddr(datapath)
+			if err != nil {
+				return err
+			}
+			results, totalVotingPower := tally(votesByAddr, valsByAddr, delegsByAddr)
+			printTallyResults(results, totalVotingPower, parseProp(datapath))
+			return nil
+		},
+	}
 
-func human(i sdk.Int) string {
-	M := sdk.NewInt(M)
-	return h.Comma(i.Quo(M).Int64())
-}
+	accountsCmd = &ffcli.Command{
+		Name:       "accounts",
+		ShortUsage: "govbox accounts <path>",
+		ShortHelp:  "Consolidate the data in <path> into a single file <path>/accounts.json",
+		Exec: func(ctx context.Context, args []string) error {
+			if len(args) == 0 {
+				return flag.ErrHelp
+			}
+			var (
+				datapath     = args[0]
+				accountsFile = filepath.Join(datapath, "accounts.json")
+			)
+			votesByAddr, err := parseVotesByAddr(datapath)
+			if err != nil {
+				return err
+			}
+			valsByAddr, err := parseValidatorsByAddr(datapath, votesByAddr)
+			if err != nil {
+				return err
+			}
+			delegsByAddr, err := parseDelegationsByAddr(datapath)
+			if err != nil {
+				return err
+			}
+			balancesByAddr, err := parseBalancesByAddr(datapath, "uatom")
+			if err != nil {
+				return err
+			}
+			accountTypesByAddr, err := parseAccountTypesPerAddr(datapath)
+			if err != nil {
+				return err
+			}
 
-func humani(i int64) string {
-	return h.Comma(i / M)
-}
+			accounts := getAccounts(delegsByAddr, votesByAddr, valsByAddr, balancesByAddr, accountTypesByAddr)
 
-func humand(d sdk.Dec) string {
-	M := sdk.NewDec(1_000_000)
-	return h.Comma(d.Quo(M).RoundInt64())
-}
+			bz, err := json.MarshalIndent(accounts, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(accountsFile, bz, 0o666); err != nil {
+				return err
+			}
+			fmt.Printf("%s file created.\n", accountsFile)
 
-func humanPercent(d sdk.Dec) string {
-	return fmt.Sprintf("%d%%", d.Mul(sdk.NewDec(100)).RoundInt64())
-}
+			return nil
+		},
+	}
+
+	genesisCmd = &ffcli.Command{
+		Name:       "genesis",
+		ShortUsage: "govbox genesis <path>",
+		ShortHelp:  "Convert <path>/accounts.json to <path>/bank.genesis",
+		LongHelp: `Generate the bank genesis for the GovGen distribution.
+The command must be run once <path>/accounts.json is generated by the
+'govbox accounts <path>' command`,
+		Exec: func(ctx context.Context, args []string) error {
+			if len(args) == 0 {
+				return flag.ErrHelp
+			}
+			var (
+				datapath        = args[0]
+				accountsFile    = filepath.Join(datapath, "accounts.json")
+				bankGenesisFile = filepath.Join(datapath, "bank.genesis")
+			)
+			accounts, err := parseAccounts(accountsFile)
+			if err != nil {
+				return err
+			}
+			if err := writeBankGenesis(accounts, bankGenesisFile); err != nil {
+				return err
+			}
+			fmt.Printf("%s file created.\n", bankGenesisFile)
+			return nil
+		},
+	}
+
+	autoStakingCmd = &ffcli.Command{
+		Name:       "autostaking",
+		ShortUsage: "govbox autostaking <path>",
+		ShortHelp:  "Experimental command to evaluate auto-staking algorithms",
+		LongHelp:   `Final implementation in GovGen commit https://github.com/atomone-hub/govgen/commit/3c40c31`,
+		Exec: func(ctx context.Context, args []string) error {
+			if len(args) == 0 {
+				return flag.ErrHelp
+			}
+			datapath := args[0]
+			return autoStaking(filepath.Join(datapath, "genesis.json"))
+		},
+	}
+
+	distributionCmd = &ffcli.Command{
+		Name:       "distribution",
+		ShortUsage: "govbox distribution <path>",
+		ShortHelp:  "Convert <path>/accounts.json into <path>/airdrop.json",
+		LongHelp:   `Generate the ATONE distribution described in GovGen PROP 001`,
+		Exec: func(ctx context.Context, args []string) error {
+			if len(args) == 0 {
+				return flag.ErrHelp
+			}
+			var (
+				datapath     = args[0]
+				accountsFile = filepath.Join(datapath, "accounts.json")
+				airdropFile  = filepath.Join(datapath, "airdrop.json")
+			)
+			accounts, err := parseAccounts(accountsFile)
+			if err != nil {
+				return err
+			}
+			airdrop, err := distribution(accounts)
+			if err != nil {
+				return err
+			}
+			bz, err := json.MarshalIndent(airdrop.addresses, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(airdropFile, bz, 0o666); err != nil {
+				return err
+			}
+			printAirdropStats(airdrop)
+			return nil
+		},
+	}
+)

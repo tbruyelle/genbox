@@ -44,8 +44,9 @@ func autoStaking(genesisPath string) error {
 		stakes              = make(map[int]int)
 		stakeSplitCondition = sdk.NewInt(1_000_000_000_000)
 
-		// staking distrib from chatGPT
-		chatgptAlgo = func(balIdx int, stake sdk.Int) {
+		// This algorithm splits the stake into parts and stake those parts one by
+		// one into the validator that has the less stake.
+		basicAlgo = func(balIdx int, stake sdk.Int) {
 			// to prevent staking multiple times over the same validator
 			// adjust split amount for the whale account
 			splitStake := sdk.NewInt(1)
@@ -107,7 +108,7 @@ func autoStaking(genesisPath string) error {
 		fmt.Println("BAL", i, human(bals[i].Coins.AmountOf("ugovgen")))
 	}
 
-	_, _ = terraAlgo, chatgptAlgo
+	_, _ = terraAlgo, basicAlgo
 	for balIdx, bal := range bals {
 		tokens := bal.Coins.AmountOf("ugovgen")
 		supply = supply.Add(tokens)
@@ -120,7 +121,7 @@ func autoStaking(genesisPath string) error {
 		stake := tokens.QuoRaw(2)
 		totalStake = totalStake.Add(stake)
 
-		chatgptAlgo(balIdx, stake)
+		basicAlgo(balIdx, stake)
 	}
 	// for k, v := range stakes {
 	// if v > 5 {

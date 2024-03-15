@@ -37,6 +37,26 @@ func init() {
 	unmarshaler = jsonpb.Unmarshaler{AnyResolver: registry}
 }
 
+const M = 1_000_000 // 1 million
+
+func human(i sdk.Int) string {
+	M := sdk.NewInt(M)
+	return h.Comma(i.Quo(M).Int64())
+}
+
+func humani(i int64) string {
+	return h.Comma(i / M)
+}
+
+func humand(d sdk.Dec) string {
+	M := sdk.NewDec(1_000_000)
+	return h.Comma(d.Quo(M).RoundInt64())
+}
+
+func humanPercent(d sdk.Dec) string {
+	return fmt.Sprintf("%d%%", d.Mul(sdk.NewDec(100)).RoundInt64())
+}
+
 func parseAccounts(path string) ([]Account, error) {
 	f, err := os.Open(path)
 	if err != nil {

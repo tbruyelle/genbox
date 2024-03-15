@@ -8,6 +8,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gogo/protobuf v1.3.3
 	github.com/olekukonko/tablewriter v0.0.5
+	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.27
 )
