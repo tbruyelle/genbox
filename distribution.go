@@ -96,7 +96,6 @@ func distribution(accounts []Account) (airdrop, error) {
 	}
 
 	fmt.Println("BLEND", blend)
-	fmt.Println("TOTAL AIRDROP", humand(airdrop.supply))
 	fmt.Println("ICF SLASH", humand(icfSlash))
 
 	return airdrop, nil
