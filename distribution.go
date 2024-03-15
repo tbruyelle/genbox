@@ -30,7 +30,7 @@ var (
 
 type airdrop struct {
 	// addresses contains the airdrop amount per address.
-	addresses map[string]sdk.Dec
+	addresses map[string]sdk.Int
 	// blend is the neutral multiplier, for which the $ATOM is neither rewarded
 	// nor diluted.
 	blend sdk.Dec
@@ -114,7 +114,7 @@ func distribution(accounts []Account) (airdrop, error) {
 
 	icfSlash := sdk.ZeroDec()
 	airdrop := airdrop{
-		addresses: make(map[string]sdk.Dec),
+		addresses: make(map[string]sdk.Int),
 		blend:     blend,
 		total:     sdk.ZeroDec(),
 		votes:     newVoteMap(),
@@ -152,7 +152,7 @@ func distribution(accounts []Account) (airdrop, error) {
 			Add(yesAirdropAmt).Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
 			Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
 		airdrop.total = airdrop.total.Add(airdropAmt)
-		airdrop.addresses[acc.Address] = airdropAmt
+		airdrop.addresses[acc.Address] = airdropAmt.TruncateInt()
 	}
 
 	fmt.Println("BLEND", blend)
