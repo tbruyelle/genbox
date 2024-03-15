@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"slices"
+
+	"github.com/olekukonko/tablewriter"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -201,4 +204,30 @@ func (m voteMap) total() sdk.Dec {
 		d = d.Add(m[v])
 	}
 	return d
+}
+
+func printAirdropStats(a airdrop) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
+	table.Append([]string{
+		"Distributed $ATONE",
+		humand(a.total),
+		humand(a.votes[govtypes.OptionEmpty]),
+		humand(a.votes[govtypes.OptionYes]),
+		humand(a.votes[govtypes.OptionNo]),
+		humand(a.votes[govtypes.OptionNoWithVeto]),
+		humand(a.votes[govtypes.OptionAbstain]),
+		humand(a.unstaked),
+	})
+	table.Append([]string{
+		"Percentage over total",
+		"",
+		humanPercent(a.votes[govtypes.OptionEmpty].Quo(a.total)),
+		humanPercent(a.votes[govtypes.OptionYes].Quo(a.total)),
+		humanPercent(a.votes[govtypes.OptionNo].Quo(a.total)),
+		humanPercent(a.votes[govtypes.OptionNoWithVeto].Quo(a.total)),
+		humanPercent(a.votes[govtypes.OptionAbstain].Quo(a.total)),
+		humanPercent(a.unstaked.Quo(a.total)),
+	})
+	table.Render()
 }

@@ -9,10 +9,8 @@ import (
 	"strings"
 
 	h "github.com/dustin/go-humanize"
-	"github.com/olekukonko/tablewriter"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 var commands = []string{"tally", "accounts", "genesis", "autostaking", "distribution"}
@@ -29,6 +27,7 @@ func main() {
 		datapath        = os.Args[2]
 		accountsFile    = filepath.Join(datapath, "accounts.json")
 		bankGenesisFile = filepath.Join(datapath, "bank.genesis")
+		airdropFile     = filepath.Join(datapath, "airdrop.json")
 	)
 	switch command {
 	case "genesis":
@@ -60,33 +59,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		airdropFile := filepath.Join(datapath, "airdrop.json")
 		if err := os.WriteFile(airdropFile, bz, 0o666); err != nil {
 			panic(err)
 		}
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
-		table.Append([]string{
-			"Distributed $ATONE",
-			humand(airdrop.total),
-			humand(airdrop.votes[govtypes.OptionEmpty]),
-			humand(airdrop.votes[govtypes.OptionYes]),
-			humand(airdrop.votes[govtypes.OptionNo]),
-			humand(airdrop.votes[govtypes.OptionNoWithVeto]),
-			humand(airdrop.votes[govtypes.OptionAbstain]),
-			humand(airdrop.unstaked),
-		})
-		table.Append([]string{
-			"Percentage over total",
-			"",
-			humanPercent(airdrop.votes[govtypes.OptionEmpty].Quo(airdrop.total)),
-			humanPercent(airdrop.votes[govtypes.OptionYes].Quo(airdrop.total)),
-			humanPercent(airdrop.votes[govtypes.OptionNo].Quo(airdrop.total)),
-			humanPercent(airdrop.votes[govtypes.OptionNoWithVeto].Quo(airdrop.total)),
-			humanPercent(airdrop.votes[govtypes.OptionAbstain].Quo(airdrop.total)),
-			humanPercent(airdrop.unstaked.Quo(airdrop.total)),
-		})
-		table.Render()
+		printAirdropStats(airdrop)
 
 	case "tally":
 		votesByAddr, err := parseVotesByAddr(datapath)
