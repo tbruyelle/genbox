@@ -290,7 +290,7 @@ func TestDistribution(t *testing.T) {
 			for k, v := range airdrop.addresses {
 				ev, ok := expectedRes[k]
 				if assert.True(ok, "unexpected address '%s'", k) {
-					assert.Equal(ev.RoundInt64(), v.RoundInt64(), "unexpected airdrop amount for address '%s'", k)
+					assert.Equal(ev.TruncateInt(), v, "unexpected airdrop amount for address '%s'", k)
 				}
 			}
 			assert.Equal(tt.expectedTotal, airdrop.total.Ceil().RoundInt64(), "unexpected airdrop.total")
