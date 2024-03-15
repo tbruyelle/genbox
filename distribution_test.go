@@ -293,7 +293,7 @@ func TestDistribution(t *testing.T) {
 					assert.Equal(ev.TruncateInt(), v, "unexpected airdrop amount for address '%s'", k)
 				}
 			}
-			assert.Equal(tt.expectedTotal, airdrop.total.Ceil().RoundInt64(), "unexpected airdrop.total")
+			assert.Equal(tt.expectedTotal, airdrop.supply.Ceil().RoundInt64(), "unexpected airdrop.total")
 			assert.Equal(tt.expectedUnstaked, airdrop.unstaked.Ceil().RoundInt64(), "unexpected airdrop.unstaked")
 			for _, v := range allVoteOptions {
 				assert.Equal(tt.expectedVotes[v], airdrop.votes[v].Ceil().RoundInt64(), "unexpected airdrop.votes[%s]", v)
