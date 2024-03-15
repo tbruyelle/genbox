@@ -141,7 +141,7 @@ func distribution(accounts []Account) (airdrop, error) {
 		// increment airdrop supply
 		airdrop.supply = airdrop.supply.Add(airdropAmt)
 		airdrop.unstaked = airdrop.unstaked.Add(liquidAirdrop)
-		// add addresse and amount
+		// add address and amount
 		airdrop.addresses[acc.Address] = airdropAmt.TruncateInt()
 	}
 
@@ -149,7 +149,7 @@ func distribution(accounts []Account) (airdrop, error) {
 	fmt.Println("TOTAL SUPPLY ", humand(totalSupply))
 	fmt.Println("TOTAL AIRDROP", humand(airdrop.supply))
 	fmt.Println("RATIO", airdrop.supply.Quo(totalSupply))
-	fmt.Println("RELATIVE PERCS", activePercs)
+	fmt.Println("ACTIVE PERCS", activePercs)
 	fmt.Println("ICF SLASH", humand(icfSlash))
 
 	return airdrop, nil
