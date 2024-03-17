@@ -67,12 +67,12 @@ func distribution(accounts []Account) (airdrop, error) {
 			// NoWithVeto: 	x noVotesMultiplier x bonus
 			// Abstain:    	x blend
 			// Didn't vote: x blend x malus
-			votePercs            = acc.votePercs()
-			yesAirdropAmt        = votePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
-			noAirdropAmt         = votePercs[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
-			noWithVetoAirdropAmt = votePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
-			abstainAirdropAmt    = votePercs[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
-			noVoteAirdropAmt     = votePercs[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
+			voteWeights          = acc.voteWeights()
+			yesAirdropAmt        = voteWeights[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
+			noAirdropAmt         = voteWeights[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
+			noWithVetoAirdropAmt = voteWeights[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
+			abstainAirdropAmt    = voteWeights[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
+			noVoteAirdropAmt     = voteWeights[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
 
 			// Liquid amount gets the same multiplier as those who didn't vote.
 			liquidMultiplier = blend.Mul(malus)
@@ -105,21 +105,10 @@ func distribution(accounts []Account) (airdrop, error) {
 func computeBlend(accounts []Account) sdk.Dec {
 	activeVoteAmts := newVoteMap()
 	for _, acc := range accounts {
-		if len(acc.Vote) == 0 {
-			// not a direct voter, check for delegated votes
-			for _, del := range acc.Delegations {
-				for _, vote := range del.Vote {
-					if vote.Option != govtypes.OptionAbstain {
-						activeVoteAmts.add(vote.Option, del.Amount.Mul(vote.Weight))
-					}
-				}
-			}
-		} else {
-			// direct voter
-			for _, vote := range acc.Vote {
-				if vote.Option != govtypes.OptionAbstain {
-					activeVoteAmts.add(vote.Option, acc.StakedAmount.Mul(vote.Weight))
-				}
+		for voteOpt, weight := range acc.voteWeights() {
+			switch voteOpt {
+			case govtypes.OptionYes, govtypes.OptionNo, govtypes.OptionNoWithVeto:
+				activeVoteAmts.add(voteOpt, acc.StakedAmount.Mul(weight))
 			}
 		}
 	}

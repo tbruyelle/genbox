@@ -23,7 +23,10 @@ type Delegation struct {
 	Vote             govtypes.WeightedVoteOptions
 }
 
-func (a Account) votePercs() voteMap {
+// voteWeights returns a consolidated map of votes, merging direct and indirect
+// votes with their respective weight summed.
+// The map also uses the govtypes.OptionEmpty to hold the no-vote weight.
+func (a Account) voteWeights() voteMap {
 	v := newVoteMap()
 	if a.StakedAmount.IsZero() {
 		v[govtypes.OptionEmpty] = sdk.OneDec()
