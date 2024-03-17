@@ -15,14 +15,42 @@ type Account struct {
 	StakedAmount sdk.Dec
 	Vote         govtypes.WeightedVoteOptions
 	Delegations  []Delegation
-
-	votePercs voteMap
 }
 
 type Delegation struct {
 	Amount           sdk.Dec
 	ValidatorAddress string
 	Vote             govtypes.WeightedVoteOptions
+}
+
+func (a Account) votePercs() voteMap {
+	v := newVoteMap()
+	if a.StakedAmount.IsZero() {
+		v[govtypes.OptionEmpty] = sdk.OneDec()
+		return v
+	}
+	if len(a.Vote) == 0 {
+		// not a direct voter, check for delegated votes
+		for _, del := range a.Delegations {
+			// Compute percentage of the delegation over the total staked amount
+			delPerc := del.Amount.Quo(a.StakedAmount)
+			if len(del.Vote) == 0 {
+				// user didn't vote and delegation didn't either, use the UNSPECIFIED
+				// vote option to track it.
+				v.add(govtypes.OptionEmpty, delPerc)
+			} else {
+				for _, vote := range del.Vote {
+					v.add(vote.Option, vote.Weight.Mul(delPerc))
+				}
+			}
+		}
+		return v
+	}
+	// direct voter
+	for _, vote := range a.Vote {
+		v[vote.Option] = vote.Weight
+	}
+	return v
 }
 
 func (a Account) String() string {

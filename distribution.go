@@ -67,11 +67,12 @@ func distribution(accounts []Account) (airdrop, error) {
 			// NoWithVeto: 	x noVotesMultiplier x bonus
 			// Abstain:    	x blend
 			// Didn't vote: x blend x malus
-			yesAirdropAmt        = acc.votePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
-			noAirdropAmt         = acc.votePercs[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
-			noWithVetoAirdropAmt = acc.votePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
-			abstainAirdropAmt    = acc.votePercs[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
-			noVoteAirdropAmt     = acc.votePercs[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
+			votePercs            = acc.votePercs()
+			yesAirdropAmt        = votePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
+			noAirdropAmt         = votePercs[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
+			noWithVetoAirdropAmt = votePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
+			abstainAirdropAmt    = votePercs[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
+			noVoteAirdropAmt     = votePercs[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
 
 			// Liquid amount gets the same multiplier as those who didn't vote.
 			liquidMultiplier = blend.Mul(malus)
@@ -101,42 +102,21 @@ func distribution(accounts []Account) (airdrop, error) {
 	return airdrop, nil
 }
 
-// computeBlend returns the blend and fills the accounts votePercs field.
 func computeBlend(accounts []Account) sdk.Dec {
 	activeVoteAmts := newVoteMap()
-	for i := range accounts {
-		acc := &accounts[i]
-		// init account.votePercs
-		acc.votePercs = newVoteMap()
-		if acc.StakedAmount.IsZero() {
-			// No stake, consider non-voter
-			acc.votePercs[govtypes.OptionEmpty] = sdk.OneDec()
-			continue
-		}
+	for _, acc := range accounts {
 		if len(acc.Vote) == 0 {
 			// not a direct voter, check for delegated votes
 			for _, del := range acc.Delegations {
-				// Compute percentage of the delegation over the total staked amount
-				delPerc := del.Amount.Quo(acc.StakedAmount)
-				if len(del.Vote) == 0 {
-					// user didn't vote and delegation didn't either, use the UNSPECIFIED
-					// vote option to track it.
-					acc.votePercs.add(govtypes.OptionEmpty, delPerc)
-				} else {
-					for _, vote := range del.Vote {
-						acc.votePercs.add(vote.Option, vote.Weight.Mul(delPerc))
-
-						if vote.Option != govtypes.OptionAbstain {
-							activeVoteAmts.add(vote.Option, del.Amount.Mul(vote.Weight))
-						}
+				for _, vote := range del.Vote {
+					if vote.Option != govtypes.OptionAbstain {
+						activeVoteAmts.add(vote.Option, del.Amount.Mul(vote.Weight))
 					}
 				}
 			}
 		} else {
 			// direct voter
 			for _, vote := range acc.Vote {
-				acc.votePercs[vote.Option] = vote.Weight
-
 				if vote.Option != govtypes.OptionAbstain {
 					activeVoteAmts.add(vote.Option, acc.StakedAmount.Mul(vote.Weight))
 				}
