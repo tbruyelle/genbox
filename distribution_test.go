@@ -216,7 +216,7 @@ func TestDistribution(t *testing.T) {
 				{
 					Address:      "directWeightVote",
 					LiquidAmount: sdk.NewDec(1),
-					StakedAmount: sdk.NewDec(20),
+					StakedAmount: sdk.NewDec(33),
 					Vote:         nil,
 					Delegations: []Delegation{
 						// one deleg used a weighted vote
@@ -241,10 +241,29 @@ func TestDistribution(t *testing.T) {
 								},
 							},
 						},
+						// one other deleg used a weighted vote
+						{
+							Amount: sdk.NewDec(10),
+							Vote: govtypes.WeightedVoteOptions{
+								{
+									Option: govtypes.OptionYes,
+									Weight: sdk.NewDecWithPrec(4, 1),
+								},
+								{
+									Option: govtypes.OptionAbstain,
+									Weight: sdk.NewDecWithPrec(6, 1),
+								},
+							},
+						},
 						// one deleg voted no
 						{
 							Amount: sdk.NewDec(2),
 							Vote:   voteNo,
+						},
+						// one deleg didn't vote
+						{
+							Amount: sdk.NewDec(3),
+							Vote:   nil,
 						},
 					},
 				},
@@ -256,21 +275,25 @@ func TestDistribution(t *testing.T) {
 					sdk.NewDec(1).Mul(blend.Mul(malus)).
 						// voted yes
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(1, 1))).
+						Add(sdk.NewDec(10).Mul(sdk.NewDecWithPrec(4, 1))).
 						// voted abstain
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(2, 1)).Mul(blend)).
+						Add(sdk.NewDec(10).Mul(sdk.NewDecWithPrec(6, 1)).Mul(blend)).
 						// voted no
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(3, 1)).Mul(noVotesMultiplier)).
 						Add(sdk.NewDec(2).Mul(noVotesMultiplier)).
 						// voted noWithVeto
-						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)),
+						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)).
+						// empty vote
+						Add(sdk.NewDec(3).Mul(blend)),
 				}
 			},
-			expectedTotal:    78,
+			expectedTotal:    108,
 			expectedUnstaked: 4,
 			expectedVotes: map[govtypes.VoteOption]int64{
-				govtypes.OptionEmpty:      0,
-				govtypes.OptionYes:        2,
-				govtypes.OptionAbstain:    14,
+				govtypes.OptionEmpty:      10,
+				govtypes.OptionYes:        6,
+				govtypes.OptionAbstain:    31,
 				govtypes.OptionNo:         30,
 				govtypes.OptionNoWithVeto: 30,
 			},
@@ -290,7 +313,7 @@ func TestDistribution(t *testing.T) {
 			for k, v := range airdrop.addresses {
 				ev, ok := expectedRes[k]
 				if assert.True(ok, "unexpected address '%s'", k) {
-					assert.Equal(ev.TruncateInt(), v, "unexpected airdrop amount for address '%s'", k)
+					assert.Equal(ev.TruncateInt64(), v.Int64(), "unexpected airdrop amount for address '%s'", k)
 				}
 			}
 			assert.Equal(tt.expectedTotal, airdrop.supply.Ceil().RoundInt64(), "unexpected airdrop.total")
