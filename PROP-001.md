@@ -127,22 +127,15 @@ But more importantly, the command will create a file
 `data/prop848/airdrop.json` which you can find [here][airdrop]. The file lists
 all accounts and their relative future $ATONE balance.
 
-The resulting supply will be of 809,415,611 $ATONE, distributed as follows:
+The resulting supply will be of 485,031,369 $ATONE, distributed as follows:
 
-|                       |  DID NOT VOTE  |    YES    |  ABSTAIN |    NO    |   NWV    | NOT STAKED |
-|:---------------------:|:--------------:|:---------:|:--------:|:--------:|:--------:|:----------:|
-|  Distributed $ATONE   |   ~158.9 M     | ~63.75 M  | ~86.29 M | ~213.4 M | ~47.91 M | ~239.17 M  |
-| Percentage over total |    ~19.6%      |  ~7.8%    |  ~10.6%  |  ~26.4%  |   ~5.9   |  ~29.5%    |
+|                       | DID NOT VOTE |    YES     |     NO      | NOWITHVETO |  ABSTAIN   | NOT STAKED |
+|-----------------------|--------------|------------|-------------|------------|------------|------------|
+| Distributed           |   52,479,607 | 63,746,761 | 213,404,392 | 47,911,135 | 28,498,638 | 78,990,836 |
+| Percentage over total | 11%          | 13%        | 44%         | 10%        | 6%         | 16%        |
 
-The computed `B` value - in the code is called `blend` - is `~2.46`. While the
-increase of $ATONE supply with respect to the $ATOM supply will be of `~2.36`.
-
-> [!NOTE]
-> The final ratio of increase of $ATONE supply with respect to $ATOM *should* be 
-> close to B, since B is supposed to be "neutral" with respect to how the
-> supply increases due to multipliers for active voters. The $ATOM that is used
-> to compute the equivalent $ATONE with B as multiplier will have a resulting
-> neutral distribution, not diluted, nor rewarded
+A specific effort is made to ensure that non-voters (DID NOT VOTE, ABSTRAIN and
+NOT STAKED) don't hold more than 1/3 of the supply.
 
 [001]: https://github.com/giunatale/govgen-proposals/blob/giunatale/atone_distribution/001_ATONE_DISTRIBUTION.md
 [airdrop]: https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/airdrop.json
