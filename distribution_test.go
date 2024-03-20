@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -75,21 +74,21 @@ func TestDistribution(t *testing.T) {
 					}},
 				},
 			},
-			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(nonVotersMult sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
-					"yes":        sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2)),
-					"abstain":    sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(blend)),
-					"no":         sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(noVotesMultiplier)),
-					"noWithVeto": sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(noVotesMultiplier).Mul(bonus)),
-					"didntVote":  sdk.NewDec(1).Mul(blend.Mul(malus)).Add(sdk.NewDec(2).Mul(blend).Mul(malus)),
+					"yes":        sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).Add(sdk.NewDec(2)),
+					"abstain":    sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).Add(sdk.NewDec(2).Mul(nonVotersMult)),
+					"no":         sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).Add(sdk.NewDec(2).Mul(noVotesMultiplier)),
+					"noWithVeto": sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).Add(sdk.NewDec(2).Mul(noVotesMultiplier).Mul(bonus)),
+					"didntVote":  sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).Add(sdk.NewDec(2).Mul(nonVotersMult).Mul(malus)),
 				}
 			},
-			expectedTotal:    45,
-			expectedUnstaked: 15,
+			expectedTotal:    27,
+			expectedUnstaked: 5,
 			expectedVotes: map[govtypes.VoteOption]int64{
-				govtypes.OptionEmpty:      6,
+				govtypes.OptionEmpty:      2,
 				govtypes.OptionYes:        2,
-				govtypes.OptionAbstain:    6,
+				govtypes.OptionAbstain:    2,
 				govtypes.OptionNo:         8,
 				govtypes.OptionNoWithVeto: 9,
 			},
@@ -121,27 +120,27 @@ func TestDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(nonVotersMult sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
 					"directWeightVote":
 					// liquid amount
-					sdk.NewDec(1).Mul(blend.Mul(malus)).
+					sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).
 						// voted yes
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(1, 1))).
 						// voted abstain
-						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(2, 1)).Mul(blend)).
+						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(2, 1)).Mul(nonVotersMult)).
 						// voted no
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(3, 1)).Mul(noVotesMultiplier)).
 						// voted noWithVeto
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)),
 				}
 			},
-			expectedTotal:    70,
-			expectedUnstaked: 4,
+			expectedTotal:    79,
+			expectedUnstaked: 6,
 			expectedVotes: map[govtypes.VoteOption]int64{
 				govtypes.OptionEmpty:      0,
 				govtypes.OptionYes:        2,
-				govtypes.OptionAbstain:    14,
+				govtypes.OptionAbstain:    21,
 				govtypes.OptionNo:         22,
 				govtypes.OptionNoWithVeto: 30,
 			},
@@ -183,17 +182,17 @@ func TestDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(nonVotersMult sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
 					"indirectVote":
 					// liquid amount
-					sdk.NewDec(1).Mul(blend.Mul(malus)).
+					sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).
 						// from deleg who didn't vote
-						Add(sdk.NewDec(2).Mul(blend).Mul(malus)).
+						Add(sdk.NewDec(2).Mul(nonVotersMult).Mul(malus)).
 						// from deleg who voted yes
 						Add(sdk.NewDec(3)).
 						// from deleg who voted abstain
-						Add(sdk.NewDec(4).Mul(blend)).
+						Add(sdk.NewDec(4).Mul(nonVotersMult)).
 						// from deleg who voted no
 						Add(sdk.NewDec(5).Mul(noVotesMultiplier)).
 						// from deleg who voted noWithVeto
@@ -268,32 +267,32 @@ func TestDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedAddresses: func(blend sdk.Dec) map[string]sdk.Dec {
+			expectedAddresses: func(nonVotersMult sdk.Dec) map[string]sdk.Dec {
 				return map[string]sdk.Dec{
 					"directWeightVote":
 					// liquid amount
-					sdk.NewDec(1).Mul(blend.Mul(malus)).
+					sdk.NewDec(1).Mul(nonVotersMult.Mul(malus)).
 						// voted yes
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(1, 1))).
 						Add(sdk.NewDec(10).Mul(sdk.NewDecWithPrec(4, 1))).
 						// voted abstain
-						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(2, 1)).Mul(blend)).
-						Add(sdk.NewDec(10).Mul(sdk.NewDecWithPrec(6, 1)).Mul(blend)).
+						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(2, 1)).Mul(nonVotersMult)).
+						Add(sdk.NewDec(10).Mul(sdk.NewDecWithPrec(6, 1)).Mul(nonVotersMult)).
 						// voted no
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(3, 1)).Mul(noVotesMultiplier)).
 						Add(sdk.NewDec(2).Mul(noVotesMultiplier)).
 						// voted noWithVeto
 						Add(sdk.NewDec(18).Mul(sdk.NewDecWithPrec(4, 1)).Mul(noVotesMultiplier).Mul(bonus)).
 						// empty vote
-						Add(sdk.NewDec(3).Mul(blend)),
+						Add(sdk.NewDec(3).Mul(nonVotersMult)),
 				}
 			},
-			expectedTotal:    108,
-			expectedUnstaked: 4,
+			expectedTotal:    97,
+			expectedUnstaked: 3,
 			expectedVotes: map[govtypes.VoteOption]int64{
-				govtypes.OptionEmpty:      10,
+				govtypes.OptionEmpty:      7,
 				govtypes.OptionYes:        6,
-				govtypes.OptionAbstain:    31,
+				govtypes.OptionAbstain:    23,
 				govtypes.OptionNo:         30,
 				govtypes.OptionNoWithVeto: 30,
 			},
@@ -303,12 +302,11 @@ func TestDistribution(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require := require.New(t)
 			assert := assert.New(t)
-			fmt.Println(sdk.NewDecWithPrec(55, 1).Mul(malus))
 
 			airdrop, err := distribution(tt.accounts)
 
 			require.NoError(err)
-			expectedRes := tt.expectedAddresses(airdrop.blend)
+			expectedRes := tt.expectedAddresses(airdrop.nonVotersMultiplier)
 			assert.Equal(len(expectedRes), len(airdrop.addresses), "unexpected number of res")
 			for k, v := range airdrop.addresses {
 				ev, ok := expectedRes[k]

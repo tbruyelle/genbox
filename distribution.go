@@ -31,9 +31,9 @@ var (
 type airdrop struct {
 	// addresses contains the airdrop amount per address.
 	addresses map[string]sdk.Int
-	// blend is the neutral multiplier, for which the $ATOM is neither rewarded
-	// nor diluted.
-	blend sdk.Dec
+	// nonVotersMultiplier ensures that non-voters don't hold more than 1/3 of
+	// the supply
+	nonVotersMultiplier sdk.Dec
 	// $ATOM distribution
 	atom distrib
 	// $ATONE distribution
@@ -52,24 +52,20 @@ type distrib struct {
 }
 
 func distribution(accounts []Account) (airdrop, error) {
-	var (
-		blend   = computeBlend(accounts)
-		airdrop = airdrop{
-			addresses: make(map[string]sdk.Int),
-			blend:     blend,
-			icfSlash:  sdk.ZeroDec(),
-			atom: distrib{
-				supply:   sdk.ZeroDec(),
-				votes:    newVoteMap(),
-				unstaked: sdk.ZeroDec(),
-			},
-			atone: distrib{
-				supply:   sdk.ZeroDec(),
-				votes:    newVoteMap(),
-				unstaked: sdk.ZeroDec(),
-			},
-		}
-	)
+	airdrop := airdrop{
+		addresses: make(map[string]sdk.Int),
+		icfSlash:  sdk.ZeroDec(),
+		atom: distrib{
+			supply:   sdk.ZeroDec(),
+			votes:    newVoteMap(),
+			unstaked: sdk.ZeroDec(),
+		},
+		atone: distrib{
+			supply:   sdk.ZeroDec(),
+			votes:    newVoteMap(),
+			unstaked: sdk.ZeroDec(),
+		},
+	}
 	for _, acc := range accounts {
 		var (
 			voteWeights = acc.voteWeights()
@@ -91,6 +87,22 @@ func distribution(accounts []Account) (airdrop, error) {
 		airdrop.atom.supply = airdrop.atom.supply.Add(acc.StakedAmount.Add(acc.LiquidAmount))
 		airdrop.atom.unstaked = airdrop.atom.unstaked.Add(acc.LiquidAmount)
 
+	}
+
+	// Compute nonVotersMultiplier to have non-voters <= 33%
+	var (
+		yesAtoneTotalAmt     = airdrop.atom.votes[govtypes.OptionYes].Mul(yesVotesMultiplier)
+		noAtoneTotalAmt      = airdrop.atom.votes[govtypes.OptionNo].Add(airdrop.atom.votes[govtypes.OptionNoWithVeto]).Mul(noVotesMultiplier)
+		noVotersAtomTotalAmt = airdrop.atom.votes[govtypes.OptionAbstain].Add(airdrop.atom.votes[govtypes.OptionEmpty]).Add(airdrop.atom.unstaked)
+		targetNonVotersPerc  = sdk.NewDecWithPrec(33, 2)
+	)
+	// Formula is:
+	// nonVotersMultiplier = (t x (yesAtone + noAtone)) / ((1 - t) x nonVoterAtom)
+	// where t is the targetNonVotersPerc
+	airdrop.nonVotersMultiplier = targetNonVotersPerc.Mul(yesAtoneTotalAmt.Add(noAtoneTotalAmt)).
+		Quo((sdk.OneDec().Sub(targetNonVotersPerc)).Mul(noVotersAtomTotalAmt))
+
+	for _, acc := range accounts {
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
 			airdrop.icfSlash = airdrop.icfSlash.Add(acc.LiquidAmount).Add(acc.StakedAmount)
@@ -98,6 +110,12 @@ func distribution(accounts []Account) (airdrop, error) {
 		}
 
 		var (
+			voteWeights       = acc.voteWeights()
+			yesAtomAmt        = voteWeights[govtypes.OptionYes].Mul(acc.StakedAmount)
+			noAtomAmt         = voteWeights[govtypes.OptionNo].Mul(acc.StakedAmount)
+			noWithVetoAtomAmt = voteWeights[govtypes.OptionNoWithVeto].Mul(acc.StakedAmount)
+			abstainAtomAmt    = voteWeights[govtypes.OptionAbstain].Mul(acc.StakedAmount)
+			noVoteAtomAmt     = voteWeights[govtypes.OptionEmpty].Mul(acc.StakedAmount)
 			// Apply airdrop multipliers:
 			// Yes:         x yesVotesMultiplier
 			// No:         	x noVotesMultiplier
@@ -107,11 +125,11 @@ func distribution(accounts []Account) (airdrop, error) {
 			yesAirdropAmt        = yesAtomAmt.Mul(yesVotesMultiplier)
 			noAirdropAmt         = noAtomAmt.Mul(noVotesMultiplier)
 			noWithVetoAirdropAmt = noWithVetoAtomAmt.Mul(noVotesMultiplier).Mul(bonus)
-			abstainAirdropAmt    = abstainAtomAmt.Mul(blend)
-			noVoteAirdropAmt     = noVoteAtomAmt.Mul(blend).Mul(malus)
+			abstainAirdropAmt    = abstainAtomAmt.Mul(airdrop.nonVotersMultiplier)
+			noVoteAirdropAmt     = noVoteAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(malus)
 
 			// Liquid amount gets the same multiplier as those who didn't vote.
-			liquidMultiplier = blend.Mul(malus)
+			liquidMultiplier = airdrop.nonVotersMultiplier.Mul(malus)
 
 			// total airdrop for this account
 			liquidAirdrop = acc.LiquidAmount.Mul(liquidMultiplier)
@@ -132,26 +150,6 @@ func distribution(accounts []Account) (airdrop, error) {
 		airdrop.addresses[acc.Address] = airdropAmt.TruncateInt()
 	}
 	return airdrop, nil
-}
-
-func computeBlend(accounts []Account) sdk.Dec {
-	activeVoteAmts := newVoteMap()
-	for _, acc := range accounts {
-		for voteOpt, weight := range acc.voteWeights() {
-			switch voteOpt {
-			case govtypes.OptionYes, govtypes.OptionNo, govtypes.OptionNoWithVeto:
-				activeVoteAmts.add(voteOpt, acc.StakedAmount.Mul(weight))
-			}
-		}
-	}
-	// Compute percentage of Y, N and NWM amouts relative to activeVoteAmts
-	activePercs := activeVoteAmts.toPercentages()
-
-	// Compute blend
-	blend := activePercs[govtypes.OptionYes].Mul(yesVotesMultiplier).
-		Add(activePercs[govtypes.OptionNo].Mul(noVotesMultiplier)).
-		Add(activePercs[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier))
-	return blend
 }
 
 // convenient type for manipulating vote counts.
@@ -232,9 +230,9 @@ func printAirdropStats(airdrop airdrop) {
 	fmt.Println("$ATOM distribution")
 	printDistrib(airdrop.atom)
 	fmt.Println()
-	fmt.Printf("$ATONE distribution (ratio: x%.3f, blend: %.3f, IcfSlash: %s $ATOM)\n",
+	fmt.Printf("$ATONE distribution (ratio: x%.3f, nonVotersMultiplier: %.3f, icfSlash: %s $ATOM)\n",
 		airdrop.atone.supply.Quo(airdrop.atom.supply).MustFloat64(),
-		airdrop.blend.MustFloat64(),
+		airdrop.nonVotersMultiplier.MustFloat64(),
 		humand(airdrop.icfSlash),
 	)
 	printDistrib(airdrop.atone)
