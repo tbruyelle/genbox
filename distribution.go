@@ -53,8 +53,10 @@ func distribution(accounts []Account) (airdrop, error) {
 			votes:     newVoteMap(),
 			unstaked:  sdk.ZeroDec(),
 		}
+		atomSupply = sdk.ZeroDec()
 	)
 	for _, acc := range accounts {
+		atomSupply = atomSupply.Add(acc.StakedAmount).Add(acc.LiquidAmount)
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
 			icfSlash = icfSlash.Add(acc.LiquidAmount).Add(acc.StakedAmount)
@@ -97,6 +99,9 @@ func distribution(accounts []Account) (airdrop, error) {
 	}
 
 	fmt.Println("BLEND", blend)
+	fmt.Println("ATOM  SUPPLY", humand(atomSupply))
+	fmt.Println("ATONE SUPPLY", humand(airdrop.supply))
+	fmt.Println("RATIO", airdrop.supply.Quo(atomSupply))
 	fmt.Println("ICF SLASH", humand(icfSlash))
 
 	return airdrop, nil
