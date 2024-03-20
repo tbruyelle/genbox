@@ -204,6 +204,8 @@ func (m voteMap) toPercentages() map[govtypes.VoteOption]sdk.Dec {
 func printAirdropStats(airdrop airdrop) {
 	printDistrib := func(d distrib) {
 		table := tablewriter.NewWriter(os.Stdout)
+		table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
+		table.SetCenterSeparator("|")
 		table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
 		table.Append([]string{
 			"Distributed",
@@ -229,6 +231,7 @@ func printAirdropStats(airdrop airdrop) {
 	}
 	fmt.Println("$ATOM distribution")
 	printDistrib(airdrop.atom)
+	fmt.Println()
 	fmt.Printf("$ATONE distribution (ratio: x%.3f, blend: %.3f, IcfSlash: %s $ATOM)\n",
 		airdrop.atone.supply.Quo(airdrop.atom.supply).MustFloat64(),
 		airdrop.blend.MustFloat64(),
