@@ -34,47 +34,81 @@ type airdrop struct {
 	// blend is the neutral multiplier, for which the $ATOM is neither rewarded
 	// nor diluted.
 	blend sdk.Dec
-	// supply of the airdrop.
+	// $ATOM distribution
+	atom distrib
+	// $ATONE distribution
+	atone distrib
+	// Amount of $ATOM slashed for the ICF
+	icfSlash sdk.Dec
+}
+
+type distrib struct {
+	// total supply of the distrib
 	supply sdk.Dec
-	// votes holds the part of the airdrop per vote.
+	// votes holds the part of the distrib per vote.
 	votes voteMap
-	// unstaked is part of the airdrop for unstaked amounts.
+	// unstaked is part of the distrib for unstaked amounts.
 	unstaked sdk.Dec
 }
 
 func distribution(accounts []Account) (airdrop, error) {
 	var (
-		blend    = computeBlend(accounts)
-		icfSlash = sdk.ZeroDec()
-		airdrop  = airdrop{
+		blend   = computeBlend(accounts)
+		airdrop = airdrop{
 			addresses: make(map[string]sdk.Int),
 			blend:     blend,
-			supply:    sdk.ZeroDec(),
-			votes:     newVoteMap(),
-			unstaked:  sdk.ZeroDec(),
+			icfSlash:  sdk.ZeroDec(),
+			atom: distrib{
+				supply:   sdk.ZeroDec(),
+				votes:    newVoteMap(),
+				unstaked: sdk.ZeroDec(),
+			},
+			atone: distrib{
+				supply:   sdk.ZeroDec(),
+				votes:    newVoteMap(),
+				unstaked: sdk.ZeroDec(),
+			},
 		}
-		atomSupply = sdk.ZeroDec()
 	)
 	for _, acc := range accounts {
-		atomSupply = atomSupply.Add(acc.StakedAmount).Add(acc.LiquidAmount)
+		var (
+			voteWeights = acc.voteWeights()
+
+			// Detail of vote distribution for $ATOM
+			yesAtomAmt        = voteWeights[govtypes.OptionYes].Mul(acc.StakedAmount)
+			noAtomAmt         = voteWeights[govtypes.OptionNo].Mul(acc.StakedAmount)
+			noWithVetoAtomAmt = voteWeights[govtypes.OptionNoWithVeto].Mul(acc.StakedAmount)
+			abstainAtomAmt    = voteWeights[govtypes.OptionAbstain].Mul(acc.StakedAmount)
+			noVoteAtomAmt     = voteWeights[govtypes.OptionEmpty].Mul(acc.StakedAmount)
+		)
+		// increment $ATOM votes
+		airdrop.atom.votes.add(govtypes.OptionYes, yesAtomAmt)
+		airdrop.atom.votes.add(govtypes.OptionNo, noAtomAmt)
+		airdrop.atom.votes.add(govtypes.OptionNoWithVeto, noWithVetoAtomAmt)
+		airdrop.atom.votes.add(govtypes.OptionAbstain, abstainAtomAmt)
+		airdrop.atom.votes.add(govtypes.OptionEmpty, noVoteAtomAmt)
+		// increment $ATOM supply
+		airdrop.atom.supply = airdrop.atom.supply.Add(acc.StakedAmount.Add(acc.LiquidAmount))
+		airdrop.atom.unstaked = airdrop.atom.unstaked.Add(acc.LiquidAmount)
+
 		if slices.Contains(icfWallets, acc.Address) {
 			// Slash ICF
-			icfSlash = icfSlash.Add(acc.LiquidAmount).Add(acc.StakedAmount)
+			airdrop.icfSlash = airdrop.icfSlash.Add(acc.LiquidAmount).Add(acc.StakedAmount)
 			continue
 		}
+
 		var (
-			// stakingMultiplier details:
+			// Apply airdrop multipliers:
 			// Yes:         x yesVotesMultiplier
 			// No:         	x noVotesMultiplier
 			// NoWithVeto: 	x noVotesMultiplier x bonus
 			// Abstain:    	x blend
 			// Didn't vote: x blend x malus
-			voteWeights          = acc.voteWeights()
-			yesAirdropAmt        = voteWeights[govtypes.OptionYes].Mul(yesVotesMultiplier).Mul(acc.StakedAmount)
-			noAirdropAmt         = voteWeights[govtypes.OptionNo].Mul(noVotesMultiplier).Mul(acc.StakedAmount)
-			noWithVetoAirdropAmt = voteWeights[govtypes.OptionNoWithVeto].Mul(noVotesMultiplier).Mul(bonus).Mul(acc.StakedAmount)
-			abstainAirdropAmt    = voteWeights[govtypes.OptionAbstain].Mul(blend).Mul(acc.StakedAmount)
-			noVoteAirdropAmt     = voteWeights[govtypes.OptionEmpty].Mul(blend).Mul(malus).Mul(acc.StakedAmount)
+			yesAirdropAmt        = yesAtomAmt.Mul(yesVotesMultiplier)
+			noAirdropAmt         = noAtomAmt.Mul(noVotesMultiplier)
+			noWithVetoAirdropAmt = noWithVetoAtomAmt.Mul(noVotesMultiplier).Mul(bonus)
+			abstainAirdropAmt    = abstainAtomAmt.Mul(blend)
+			noVoteAirdropAmt     = noVoteAtomAmt.Mul(blend).Mul(malus)
 
 			// Liquid amount gets the same multiplier as those who didn't vote.
 			liquidMultiplier = blend.Mul(malus)
@@ -86,24 +120,17 @@ func distribution(accounts []Account) (airdrop, error) {
 			airdropAmt = liquidAirdrop.Add(stakedAirdrop)
 		)
 		// increment airdrop votes
-		airdrop.votes.add(govtypes.OptionYes, yesAirdropAmt)
-		airdrop.votes.add(govtypes.OptionNo, noAirdropAmt)
-		airdrop.votes.add(govtypes.OptionNoWithVeto, noWithVetoAirdropAmt)
-		airdrop.votes.add(govtypes.OptionAbstain, abstainAirdropAmt)
-		airdrop.votes.add(govtypes.OptionEmpty, noVoteAirdropAmt)
+		airdrop.atone.votes.add(govtypes.OptionYes, yesAirdropAmt)
+		airdrop.atone.votes.add(govtypes.OptionNo, noAirdropAmt)
+		airdrop.atone.votes.add(govtypes.OptionNoWithVeto, noWithVetoAirdropAmt)
+		airdrop.atone.votes.add(govtypes.OptionAbstain, abstainAirdropAmt)
+		airdrop.atone.votes.add(govtypes.OptionEmpty, noVoteAirdropAmt)
 		// increment airdrop supply
-		airdrop.supply = airdrop.supply.Add(airdropAmt)
-		airdrop.unstaked = airdrop.unstaked.Add(liquidAirdrop)
+		airdrop.atone.supply = airdrop.atone.supply.Add(airdropAmt)
+		airdrop.atone.unstaked = airdrop.atone.unstaked.Add(liquidAirdrop)
 		// add address and amount
 		airdrop.addresses[acc.Address] = airdropAmt.TruncateInt()
 	}
-
-	fmt.Println("BLEND", blend)
-	fmt.Println("ATOM  SUPPLY", humand(atomSupply))
-	fmt.Println("ATONE SUPPLY", humand(airdrop.supply))
-	fmt.Println("RATIO", airdrop.supply.Quo(atomSupply))
-	fmt.Println("ICF SLASH", humand(icfSlash))
-
 	return airdrop, nil
 }
 
@@ -174,28 +201,38 @@ func (m voteMap) toPercentages() map[govtypes.VoteOption]sdk.Dec {
 	return percs
 }
 
-func printAirdropStats(a airdrop) {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
-	table.Append([]string{
-		"Distributed $ATONE",
-		humand(a.supply),
-		humand(a.votes[govtypes.OptionEmpty]),
-		humand(a.votes[govtypes.OptionYes]),
-		humand(a.votes[govtypes.OptionNo]),
-		humand(a.votes[govtypes.OptionNoWithVeto]),
-		humand(a.votes[govtypes.OptionAbstain]),
-		humand(a.unstaked),
-	})
-	table.Append([]string{
-		"Percentage over total",
-		"",
-		humanPercent(a.votes[govtypes.OptionEmpty].Quo(a.supply)),
-		humanPercent(a.votes[govtypes.OptionYes].Quo(a.supply)),
-		humanPercent(a.votes[govtypes.OptionNo].Quo(a.supply)),
-		humanPercent(a.votes[govtypes.OptionNoWithVeto].Quo(a.supply)),
-		humanPercent(a.votes[govtypes.OptionAbstain].Quo(a.supply)),
-		humanPercent(a.unstaked.Quo(a.supply)),
-	})
-	table.Render()
+func printAirdropStats(airdrop airdrop) {
+	printDistrib := func(d distrib) {
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"", "TOTAL", "DID NOT VOTE", "YES", "NO", "NOWITHVETO", "ABSTAIN", "NOT STAKED"})
+		table.Append([]string{
+			"Distributed",
+			humand(d.supply),
+			humand(d.votes[govtypes.OptionEmpty]),
+			humand(d.votes[govtypes.OptionYes]),
+			humand(d.votes[govtypes.OptionNo]),
+			humand(d.votes[govtypes.OptionNoWithVeto]),
+			humand(d.votes[govtypes.OptionAbstain]),
+			humand(d.unstaked),
+		})
+		table.Append([]string{
+			"Percentage over total",
+			"",
+			humanPercent(d.votes[govtypes.OptionEmpty].Quo(d.supply)),
+			humanPercent(d.votes[govtypes.OptionYes].Quo(d.supply)),
+			humanPercent(d.votes[govtypes.OptionNo].Quo(d.supply)),
+			humanPercent(d.votes[govtypes.OptionNoWithVeto].Quo(d.supply)),
+			humanPercent(d.votes[govtypes.OptionAbstain].Quo(d.supply)),
+			humanPercent(d.unstaked.Quo(d.supply)),
+		})
+		table.Render()
+	}
+	fmt.Println("$ATOM distribution")
+	printDistrib(airdrop.atom)
+	fmt.Printf("$ATONE distribution (ratio: x%.3f, blend: %.3f, IcfSlash: %s $ATOM)\n",
+		airdrop.atone.supply.Quo(airdrop.atom.supply).MustFloat64(),
+		airdrop.blend.MustFloat64(),
+		humand(airdrop.icfSlash),
+	)
+	printDistrib(airdrop.atone)
 }
