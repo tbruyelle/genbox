@@ -4,8 +4,8 @@ This page will describe the methodology to apply the $ATONE distribution
 detailed in [proposal 001][001].
 
 > [!NOTE]
-> While this documentation is related to proposal 848, you can easily use it
-> for any other proposal.
+> While this documentation is related to [proposal 848][prop848], you can
+> easily use it for any other proposal.
 > The code itself isn't related to proposal 848.
 
 ## Get the snapshot data
@@ -137,5 +137,14 @@ The resulting supply will be of 485,031,369 $ATONE, distributed as follows:
 A specific effort is made to ensure that non-voters (DID NOT VOTE, ABSTRAIN and
 NOT STAKED) don't hold more than 1/3 of the supply.
 
+As a comparison, here is the $ATOM distribution for [prop848] ($ATOM supply was
+342,834,268):
+
+|                       | DID NOT VOTE |    YES     |     NO     | NOWITHVETO |  ABSTAIN   | NOT STAKED  |
+|-----------------------|--------------|------------|------------|------------|------------|-------------|
+| Distributed           |   66,855,758 | 70,428,501 | 55,519,213 | 11,664,818 | 35,679,919 | 102,686,059 |
+| Percentage over total | 20%          | 21%        | 16%        | 3%         | 10%        | 30%         |
+
 [001]: https://github.com/giunatale/govgen-proposals/blob/giunatale/atone_distribution/001_ATONE_DISTRIBUTION.md
 [airdrop]: https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/airdrop.json
+[prop848]: https://www.mintscan.io/cosmos/proposals/848
