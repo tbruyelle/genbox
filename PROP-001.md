@@ -135,7 +135,8 @@ The resulting supply will be of 485,031,369 $ATONE, distributed as follows:
 | Percentage over total | 11%          | 13%        | 44%         | 10%        | 6%         | 16%        |
 
 A specific effort is made to ensure that non-voters (DID NOT VOTE, ABSTRAIN and
-NOT STAKED) don't hold more than 1/3 of the supply.
+NOT STAKED) don't hold more than 1/3 of the supply (see the  following section 
+for details on how this was achieved).
 
 As a comparison, here is the $ATOM distribution for [prop848] ($ATOM supply was
 342,834,268):
@@ -144,6 +145,65 @@ As a comparison, here is the $ATOM distribution for [prop848] ($ATOM supply was
 |-----------------------|--------------|------------|------------|------------|------------|-------------|
 | Distributed           |   66,855,758 | 70,428,501 | 55,519,213 | 11,664,818 | 35,679,919 | 102,686,059 |
 | Percentage over total | 20%          | 21%        | 16%        | 3%         | 10%        | 30%         |
+
+## Multiplier Formula
+
+This section details how the multiplier `C` for abstainers, non-voters and
+unbonded $ATOM is calculated to result in them having less than 1/3 of the
+final $ATONE supply.
+
+Let's define the following variables:
+- `C` the multiplier
+- `t` the target percent (known, 33%)
+- `X` a supply in $ATOM (known)
+- `Y` a supply in $ATOM
+- both `X` and `Y` will have an annotation indicating the portion of the supply:
+    - `Y` voted Yes
+    - `A` voted Abstain
+    - `N` voted No
+    - `NWV` voted No With Veto
+    - `DNV` DidN't Vote
+    - `U` Unbonded
+  For example, $X_{A}$ is the number of $ATOM that has votes ABSTAIN.
+
+Intuitively, we can start by writing this formula, which expresses our need:
+```math
+\begin{flalign}
+& \frac{Y_{A} + Y_{DNV} + Y_{U}}{Y_{A} + Y_{DNV} + Y_{U} + Y_{Y} + Y_{N} + Y_{NWV}} <= t &
+\end{flalign}
+```
+
+Which can be translated by the number of abstainers, non-voters and unbonded
+$ATONE divided by the total number of $ATONE should be less than `t`, thus 33%.
+
+Now let's replace the `Y`s, which are unkown at this step, by the `X`s, using
+the multipliers that we know and the multiplier we are looking for `C`.
+```math
+\begin{flalign}
+& Y_{Y} = X_{Y} &\\
+& Y_{N} = 4 \cdot X_{N} & \\
+& Y_{NWN} = 4 \cdot X_{NWV} & \\
+& Y_{A} + Y_{DNV} + Y_{U} = C \cdot (X_{A} + X_{DNV} + X_{U}) &
+\end{flalign}
+```
+
+Which gives on the first equation:
+```math
+\begin{flalign}
+& \frac{C \cdot (X_{A} + X_{DNV} + X_{U})}{C \cdot (X_{A} + X_{DNV} + X_{U}) + X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}} <= t &
+\end{flalign}
+```
+
+Now let's isolate `C`:
+```math
+\begin{flalign}
+& C \cdot (X_{A} + X_{DNV} + X_{U}) <= t \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) + t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) &\\
+& (1 - t) \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) <=  t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) &\\
+& C  <=  \frac{t}{1-t} \cdot \frac{(X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV})}{(X_{A} + X_{DNV} + X_{U})} &\\
+\end{flalign}
+```
+Which gives the final formula described in the [proposal 001][001].
+
 
 [001]: https://github.com/giunatale/govgen-proposals/blob/giunatale/atone_distribution/001_ATONE_DISTRIBUTION.md
 [airdrop]: https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/airdrop.json
