@@ -120,8 +120,8 @@ func distribution(accounts []Account) (airdrop, error) {
 			// Yes:         x yesVotesMultiplier
 			// No:         	x noVotesMultiplier
 			// NoWithVeto: 	x noVotesMultiplier x bonus
-			// Abstain:    	x blend
-			// Didn't vote: x blend x malus
+			// Abstain:    	x nonVotersMultiplier
+			// Didn't vote: x nonVotersMultiplier x malus
 			yesAirdropAmt        = yesAtomAmt.Mul(yesVotesMultiplier)
 			noAirdropAmt         = noAtomAmt.Mul(noVotesMultiplier)
 			noWithVetoAirdropAmt = noWithVetoAtomAmt.Mul(noVotesMultiplier).Mul(bonus)
