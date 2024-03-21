@@ -26,6 +26,7 @@ var (
 	noVotesMultiplier  = sdk.NewDec(4)              // N & NWV get 1+x3
 	bonus              = sdk.NewDecWithPrec(103, 2) // 3% bonus
 	malus              = sdk.NewDecWithPrec(97, 2)  // -3% malus
+	supplyFactor       = sdk.NewDecWithPrec(1, 1)   // Decrease final supply by a factor of 10
 )
 
 type airdrop struct {
@@ -122,20 +123,20 @@ func distribution(accounts []Account) (airdrop, error) {
 			// NoWithVeto: 	x noVotesMultiplier x bonus
 			// Abstain:    	x nonVotersMultiplier
 			// Didn't vote: x nonVotersMultiplier x malus
-			yesAirdropAmt        = yesAtomAmt.Mul(yesVotesMultiplier)
-			noAirdropAmt         = noAtomAmt.Mul(noVotesMultiplier)
-			noWithVetoAirdropAmt = noWithVetoAtomAmt.Mul(noVotesMultiplier).Mul(bonus)
-			abstainAirdropAmt    = abstainAtomAmt.Mul(airdrop.nonVotersMultiplier)
-			noVoteAirdropAmt     = noVoteAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(malus)
+			yesAirdropAmt        = yesAtomAmt.Mul(yesVotesMultiplier).Mul(supplyFactor)
+			noAirdropAmt         = noAtomAmt.Mul(noVotesMultiplier).Mul(supplyFactor)
+			noWithVetoAirdropAmt = noWithVetoAtomAmt.Mul(noVotesMultiplier).Mul(bonus).Mul(supplyFactor)
+			abstainAirdropAmt    = abstainAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(supplyFactor)
+			noVoteAirdropAmt     = noVoteAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(malus).Mul(supplyFactor)
 
 			// Liquid amount gets the same multiplier as those who didn't vote.
 			liquidMultiplier = airdrop.nonVotersMultiplier.Mul(malus)
 
 			// total airdrop for this account
-			liquidAirdrop = acc.LiquidAmount.Mul(liquidMultiplier)
-			stakedAirdrop = yesAirdropAmt.Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
-					Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
-			airdropAmt = liquidAirdrop.Add(stakedAirdrop)
+			liquidAirdropAmt = acc.LiquidAmount.Mul(liquidMultiplier).Mul(supplyFactor)
+			stakedAirdropAmt = yesAirdropAmt.Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
+						Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
+			airdropAmt = liquidAirdropAmt.Add(stakedAirdropAmt)
 		)
 		// increment airdrop votes
 		airdrop.atone.votes.add(govtypes.OptionYes, yesAirdropAmt)
@@ -145,9 +146,11 @@ func distribution(accounts []Account) (airdrop, error) {
 		airdrop.atone.votes.add(govtypes.OptionEmpty, noVoteAirdropAmt)
 		// increment airdrop supply
 		airdrop.atone.supply = airdrop.atone.supply.Add(airdropAmt)
-		airdrop.atone.unstaked = airdrop.atone.unstaked.Add(liquidAirdrop)
-		// add address and amount
-		airdrop.addresses[acc.Address] = airdropAmt.TruncateInt()
+		airdrop.atone.unstaked = airdrop.atone.unstaked.Add(liquidAirdropAmt)
+		// add address and amount (skipping 0 balance)
+		if amtInt := airdropAmt.RoundInt(); !amtInt.IsZero() {
+			airdrop.addresses[acc.Address] = amtInt
+		}
 	}
 	return airdrop, nil
 }
