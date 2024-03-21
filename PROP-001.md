@@ -1,14 +1,14 @@
-# Govgen Proposal 001 methodology
+# Methodology for Applying the $ATONE Distribution as Detailed in Govgen Proposal 001
 
 This page will describe the methodology to apply the $ATONE distribution
-detailed in [proposal 001][001].
+detailed in GovGen [proposal 001][001].
 
 > [!NOTE]
-> While this documentation is related to [proposal 848][prop848], you can
-> easily use it for any other proposal.
-> The code itself isn't related to proposal 848.
+> While this documentation is related to Cosmos Hub [proposal 848][prop848] and
+> GovGen [proposal 001][001], the code itself is supposed to be portable and
+> reusable in other scenarios.
 
-## Get the snapshot data
+## Get the Cosmos Hub Proposal 848 Snapshot Data
 
 Create a directory `data/prop848` and download the following files in that
 directory:
@@ -19,17 +19,18 @@ directory:
 - `balances.json` https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/balances.json 
 - `auth_genesis.json` https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/auth_genesis.json
 
-The way those files were extracted from the snaphots is available
-[here](SNAPSHOT-EXTRACT.md). If you prefer you can start from a Gaia blockchain
-node and extract all the data, everything is detailed in the link above.
+The way these files were extracted from Cosmos HUb [proposal 848][prop848]
+snaphot is available [here](SNAPSHOT-EXTRACT.md). If you prefer you can start from a 
+[Cosmos Hub node][gaia] and extract all the data, everything is detailed
+[here](SNAPSHOT-EXTRACT.md) as already mentioned.
 
-## Verify tally
+## Verify Cosmos Hub Proposal 848 Tally
 
-A good way to check the correctness of the data is to compute the prop 848
-tally from the data and compare it with the proposal `TallyResult` field stored
-in the blockchain's store.
+A good way to verify correctness of the data is to use it to compute the
+prop 848 tally and compare the results with the `TallyResult` field of the
+proposal object stored on-chain.
 
-You can achieve that by running this command:
+You can achieve this by running the following command:
 ```
 $ go run . tally data/prop848/
 173,165 votes
@@ -48,15 +49,16 @@ Yes percent: 0.517062127500689774
 +-----------+------------+------------+------------+------------+-------------+
 ```
 
-As printed in the output of the command, the diff is always 0, meaning there's
+As printed in the output of the command, the diff is 0, meaning there is
 no difference between the tally computed from the data and the `TallyResult`
 field of the proposal.
 
 ## Consolidate accounts
 
 The program allows you to create a `data/prop848/accounts.json` file that
-consolidates all the interesting data from an account. This file will be used
-by the following command to compute other things.
+consolidates all the relevant data for accounts. This file will be the starting
+point for the following steps, and will be fed to this very same program
+but using a different command.
 
 ```
 $ go run . accounts data/prop848/
@@ -107,8 +109,8 @@ For example, here is the representation of an account in this file:
 }
 ```
 
-It gives access to the liquid and staked amount, the vote, the delegations and
-their relative vote.
+It gives access to the unbonded and bonded amounts (here *liquid* and *staked*
+amounts), the direct vote if present, the delegations and their relative vote.
 
 > [!NOTE]
 > `ModuleAccount` and `InterchainAccount` are skipped.
@@ -121,88 +123,105 @@ Finally, let's compute the $ATONE distribution:
 $ go run . distribution data/prop848/
 ```
 
-The command above will output the resulting data and a table, which shows the distribution.
+The command above will output a table which provides an overview of the
+resulting distribution.
 
 But more importantly, the command will create a file
-`data/prop848/airdrop.json` which you can find [here][airdrop]. The file lists
-all accounts and their relative future $ATONE balance.
+`data/prop848/airdrop.json` which for convenience you can find [here][airdrop]
+already generated. The file lists all accounts and their relative proposed
+$ATONE balance.
 
-The resulting supply will be of 485,031,369 $ATONE, distributed as follows:
+The following table is also provided for a quick recap of the employed
+[methodology][001]:
 
-|                       | DID NOT VOTE |    YES     |     NO      | NOWITHVETO |  ABSTAIN   | NOT STAKED |
-|-----------------------|--------------|------------|-------------|------------|------------|------------|
-| Distributed           |   52,479,607 | 63,746,761 | 213,404,392 | 47,911,135 | 28,498,638 | 78,990,836 |
-| Percentage over total | 11%          | 13%        | 44%         | 10%        | 6%         | 16%        |
+|                     |  DNV      | YES | ABSTAIN | NO |    NWV    |
+|---------------------|-----------|-----|---------|----|-----------|
+| Bonded multiplier   | C x malus |  1  |    C    | 4  | 4 x bonus |
+| Unbonded multiplier | C x malus |  -  |    -    | -  |     -     |
 
-A specific effort is made to ensure that non-voters (DID NOT VOTE, ABSTRAIN and
-NOT STAKED) don't hold more than 1/3 of the supply (see the  following section 
-for details on how this was achieved).
+A specific effort is made to ensure that *non-voting* categories 
+(*Did not Vote*, *Abstain* and *Not Staked (or Unbonded)*) do not end up holding
+more than 1/3 of the supply. A tailored `C` multiplier is introduced to achieve
+this. See the following section for details on how this is achieved.
 
-As a comparison, here is the $ATOM distribution for [prop848] ($ATOM supply was
-342,834,268):
+To obtain the final distribution, we also apply a decimation factor `K = 0.1`
+when computing balances. 
 
-|                       | DID NOT VOTE |    YES     |     NO     | NOWITHVETO |  ABSTAIN   | NOT STAKED  |
-|-----------------------|--------------|------------|------------|------------|------------|-------------|
-| Distributed           |   66,855,758 | 70,428,501 | 55,519,213 | 11,664,818 | 35,679,919 | 102,686,059 |
-| Percentage over total | 20%          | 21%        | 16%        | 3%         | 10%        | 30%         |
+> [!IMPORTANT]
+> The recap table above does not explicitly account for the `K = 0.1`
+> decimation factor. It is considered implicit as it will be applied
+> indiscriminately alongside any other category-specific multiplier
+
+According to the current calculations -- which **may** change -- the potential
+$ATONE distribution will be of around ~48.5 Millions.
+
+|                       |   TOTAL    | DID NOT VOTE |    YES    |     NO     | NOWITHVETO |  ABSTAIN  | NOT STAKED |
+|-----------------------|------------|--------------|-----------|------------|------------|-----------|------------|
+| Distributed $ATONE    | 48,503,137 |    5,247,961 | 6,374,676 | 21,340,439 |  4,791,114 | 2,849,864 |  7,899,084 |
+| Percentage over total |            | 11%          | 13%       | 44%        | 10%        | 6%        | 16%        |
+
+As a comparison, here is the $ATOM distribution for [prop848]:
+
+|                       |    TOTAL    | DID NOT VOTE |    YES     |     NO     | NOWITHVETO |  ABSTAIN   | NOT STAKED  |
+|-----------------------|-------------|--------------|------------|------------|------------|------------|-------------|
+| Total $ATOM           | 342,834,268 | 66,855,758   | 70,428,501 | 55,519,213 | 11,664,818 | 35,679,919 | 102,686,059 |
+| Percentage over total |             | 20%          | 21%        | 16%        | 3%         | 10%        | 30%         |
+
 
 ## Multiplier Formula
 
-This section details how the multiplier `C` for abstainers, non-voters and
-unbonded $ATOM is calculated to result in them having less than 1/3 of the
-final $ATONE supply.
+This section details how the multiplier `C` for the *non-voting* $ATOM 
+(*Abstain*, *Did Not Vote*, *Not Staked*) is calculated to result in them having
+less than or equal to 1/3 of the final $ATONE supply, or in general a fixed
+target percentage `t`.
 
 Let's define the following variables:
-- `C` the multiplier
-- `t` the target percent (known, 33%)
-- `X` a supply in $ATOM (known)
-- `Y` a supply in $ATONE
+- `C` is the multiplier we want to compute to be applied to non-voting
+  categories, i.e. *Not Staked*, *Abstain* and *Did Not Vote*
+- `t` the target relative percentage of $ATONE supply distributed to non-voting
+  categories we want to achieve (known, 33%)
+- `X` is the supply in $ATOM (known)
+- `Y` is the supply in $ATONE
 - both `X` and `Y` will have an annotation indicating the portion of the supply:
     - `Y` voted Yes
     - `A` voted Abstain
     - `N` voted No
     - `NWV` voted No With Veto
-    - `DNV` DidN't Vote
-    - `U` Unbonded
+    - `DNV` Did Not Vote
+    - `U` Unbonded (Not Staked)
 
-  For example, $X_{A}$ is the number of $ATOM that has votes ABSTAIN.
+  For example, $X_{A}$ is the number of $ATOM that has voted ABSTAIN.
 
-Intuitively, we can start by writing this formula, which expresses our need:
+Using the above notation, we can express what we want to achieve mathemacally as:
 ```math
-\begin{flalign}
-& \frac{Y_{A} + Y_{DNV} + Y_{U}}{Y_{A} + Y_{DNV} + Y_{U} + Y_{Y} + Y_{N} + Y_{NWV}} <= t &
-\end{flalign}
+\frac{Y_{A} + Y_{DNV} + Y_{U}}{Y_{A} + Y_{DNV} + Y_{U} + Y_{Y} + Y_{N} + Y_{NWV}} \leq t
+```
+It is know from the specifications of the distribution mechanism, *disregarding
+any additional bonus or malus* for simplicity and also because they are meant to
+be applied *additionally* to the *C* multiplier:
+```math
+\left\{
+\begin{aligned}
+& Y_{Y} = X_{Y} \\
+& Y_{N} = 4 \cdot X_{N} \\
+& Y_{NWV} = 4 \cdot X_{NWV} \\
+& Y_{A} + Y_{DNV} + Y_{U} = C \cdot X_{A} + C \cdot X_{DNV} + C \cdot X_{U} = C \cdot (X_{A} + X_{DNV} + X_{U})
+\end{aligned}
+\right.
 ```
 
-Which can be translated by the number of abstainers, non-voters and unbonded
-$ATONE divided by the total number of $ATONE must be less or equal to `t`, thus
-33%.
-
-Now let's replace the `Y`s, which are unknown at this point, with the `X`s,
-using the multipliers we know and the multiplier we are looking for `C`:
+Which if plugged in the above equation gives:
 ```math
-\begin{flalign}
-& Y_{Y} = X_{Y} &\\
-& Y_{N} = 4 \cdot X_{N} & \\
-& Y_{NWN} = 4 \cdot X_{NWV} & \\
-& Y_{A} + Y_{DNV} + Y_{U} = C \cdot (X_{A} + X_{DNV} + X_{U}) &
-\end{flalign}
+\frac{C \cdot (X_{A} + X_{DNV} + X_{U})}{C \cdot (X_{A} + X_{DNV} + X_{U}) + X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}} \leq t
 ```
 
-Which, with respect to the first equation, gives:
+Finally, let's isolate `C`:
 ```math
-\begin{flalign}
-& \frac{C \cdot (X_{A} + X_{DNV} + X_{U})}{C \cdot (X_{A} + X_{DNV} + X_{U}) + X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}} <= t &
-\end{flalign}
-```
-
-Now let's isolate `C`:
-```math
-\begin{flalign}
-& C \cdot (X_{A} + X_{DNV} + X_{U}) <= t \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) + t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) &\\
-& (1 - t) \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) <=  t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) &\\
-& C  <=  \frac{t}{1-t} \cdot \frac{(X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV})}{(X_{A} + X_{DNV} + X_{U})} &\\
-\end{flalign}
+\begin{align}
+C \cdot (X_{A} + X_{DNV} + X_{U}) &\leq t \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) + t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) \\[10pt]
+(1 - t) \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) &\leq  t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) \\[10pt]
+C  &\leq  \frac{t}{1-t} \cdot \frac{(X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV})}{(X_{A} + X_{DNV} + X_{U})}
+\end{align}
 ```
 Which gives the final formula described in the [proposal 001][001].
 
@@ -210,3 +229,4 @@ Which gives the final formula described in the [proposal 001][001].
 [001]: https://github.com/giunatale/govgen-proposals/blob/giunatale/atone_distribution/001_ATONE_DISTRIBUTION.md
 [airdrop]: https://atomone.fra1.digitaloceanspaces.com/cosmoshub-4/prop848/airdrop.json
 [prop848]: https://www.mintscan.io/cosmos/proposals/848
+[gaia]: https://github.com/cosmos/gaia
