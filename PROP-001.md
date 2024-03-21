@@ -156,7 +156,7 @@ Let's define the following variables:
 - `C` the multiplier
 - `t` the target percent (known, 33%)
 - `X` a supply in $ATOM (known)
-- `Y` a supply in $ATOM
+- `Y` a supply in $ATONE
 - both `X` and `Y` will have an annotation indicating the portion of the supply:
     - `Y` voted Yes
     - `A` voted Abstain
@@ -164,6 +164,7 @@ Let's define the following variables:
     - `NWV` voted No With Veto
     - `DNV` DidN't Vote
     - `U` Unbonded
+
   For example, $X_{A}$ is the number of $ATOM that has votes ABSTAIN.
 
 Intuitively, we can start by writing this formula, which expresses our need:
@@ -174,10 +175,11 @@ Intuitively, we can start by writing this formula, which expresses our need:
 ```
 
 Which can be translated by the number of abstainers, non-voters and unbonded
-$ATONE divided by the total number of $ATONE should be less than `t`, thus 33%.
+$ATONE divided by the total number of $ATONE must be less or equal to `t`, thus
+33%.
 
-Now let's replace the `Y`s, which are unkown at this step, by the `X`s, using
-the multipliers that we know and the multiplier we are looking for `C`.
+Now let's replace the `Y`s, which are unknown at this point, with the `X`s,
+using the multipliers we know and the multiplier we are looking for `C`:
 ```math
 \begin{flalign}
 & Y_{Y} = X_{Y} &\\
@@ -187,7 +189,7 @@ the multipliers that we know and the multiplier we are looking for `C`.
 \end{flalign}
 ```
 
-Which gives on the first equation:
+Which, with respect to the first equation, gives:
 ```math
 \begin{flalign}
 & \frac{C \cdot (X_{A} + X_{DNV} + X_{U})}{C \cdot (X_{A} + X_{DNV} + X_{U}) + X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}} <= t &
