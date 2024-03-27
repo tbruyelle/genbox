@@ -281,6 +281,10 @@ func renderBarChart(f *os.File, airdrops []airdrop) error {
 	bar.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{Title: "Votes distribution"}),
 		charts.WithLegendOpts(opts.Legend{Show: true, Right: "right", Orient: "vertical"}),
+		charts.WithTooltipOpts(opts.Tooltip{
+			Show:      true,
+			Formatter: opts.FuncOpts("function(params){ return params.value.toFixed(2)+'%'}"),
+		}),
 	)
 
 	bar.SetXAxis([]string{"Yes", "No", "NWV", "Abstain", "DNV", "Unstaked"})
@@ -292,27 +296,27 @@ func renderBarChart(f *os.File, airdrops []airdrop) error {
 		)
 		data[0] = opts.BarData{
 			Name:  "Yes",
-			Value: votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
+			Value: votePercs[govtypes.OptionYes].Mul(oneHundred).MustFloat64(),
 		}
 		data[1] = opts.BarData{
 			Name:  "No",
-			Value: votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
+			Value: votePercs[govtypes.OptionNo].Mul(oneHundred).MustFloat64(),
 		}
 		data[2] = opts.BarData{
 			Name:  "NWV",
-			Value: votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
+			Value: votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).MustFloat64(),
 		}
 		data[3] = opts.BarData{
 			Name:  "Abstain",
-			Value: votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
+			Value: votePercs[govtypes.OptionAbstain].Mul(oneHundred).MustFloat64(),
 		}
 		data[4] = opts.BarData{
 			Name:  "DNV",
-			Value: votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
+			Value: votePercs[govtypes.OptionEmpty].Mul(oneHundred).MustFloat64(),
 		}
 		data[5] = opts.BarData{
 			Name:  "Unstaked",
-			Value: d.unstaked.Quo(d.supply).Mul(oneHundred).RoundInt64(),
+			Value: d.unstaked.Quo(d.supply).Mul(oneHundred).MustFloat64(),
 		}
 		return data
 	}
@@ -332,6 +336,10 @@ func renderPieChart(f *os.File, title string, d distrib) error {
 		charts.WithLegendOpts(opts.Legend{
 			Show: false,
 		}),
+		charts.WithTooltipOpts(opts.Tooltip{
+			Show:      true,
+			Formatter: opts.FuncOpts("function(params){ return params.name+': '+params.value.toFixed(2)+'%'}"),
+		}),
 	)
 	var (
 		data       = make([]opts.PieData, 6)
@@ -341,39 +349,33 @@ func renderPieChart(f *os.File, title string, d distrib) error {
 	data[0] = opts.PieData{
 		Name:      "Yes",
 		ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
-		Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
+		Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).MustFloat64(),
 	}
 	data[1] = opts.PieData{
 		Name:      "No",
 		ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
-		Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
+		Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).MustFloat64(),
 	}
 	data[2] = opts.PieData{
 		Name:      "NWV",
 		ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
-		Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
+		Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).MustFloat64(),
 	}
 	data[3] = opts.PieData{
 		Name:      "Abstain",
 		ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
-		Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
+		Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).MustFloat64(),
 	}
 	data[4] = opts.PieData{
 		Name:      "DNV",
 		ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
-		Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
+		Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).MustFloat64(),
 	}
 	data[5] = opts.PieData{
 		Name:      "Unstaked",
 		ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
-		Value:     d.unstaked.Quo(d.supply).Mul(oneHundred).RoundInt64(),
+		Value:     d.unstaked.Quo(d.supply).Mul(oneHundred).MustFloat64(),
 	}
-	pie.AddSeries("pie", data).
-		SetSeriesOptions(charts.WithLabelOpts(
-			opts.Label{
-				Show:      true,
-				Formatter: "{b}: {c}%",
-			}),
-		)
+	pie.AddSeries("pie", data)
 	return pie.Render(f)
 }
