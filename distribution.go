@@ -22,11 +22,13 @@ var (
 		"cosmos1sufkm72dw7ua9crpfhhp0dqpyuggtlhdse98e7",
 		"cosmos1z6czaavlk6kjd48rpf58kqqw9ssad2uaxnazgl",
 	}
-	yesVotesMultiplier = sdk.OneDec()               // Y get x1
-	noVotesMultiplier  = sdk.NewDec(4)              // N & NWV get 1+x3
-	bonus              = sdk.NewDecWithPrec(103, 2) // 3% bonus
-	malus              = sdk.NewDecWithPrec(97, 2)  // -3% malus
-	supplyFactor       = sdk.NewDecWithPrec(1, 1)   // Decrease final supply by a factor of 10
+	defaultDistriParams = distriParams{
+		yesVotesMultiplier: sdk.OneDec(),               // Y get x1
+		noVotesMultiplier:  sdk.NewDec(4),              // N & NWV get 1+x3
+		bonus:              sdk.NewDecWithPrec(103, 2), // 3% bonus
+		malus:              sdk.NewDecWithPrec(97, 2),  // -3% malus
+		supplyFactor:       sdk.NewDecWithPrec(1, 1),   // Decrease final supply by a factor of 10
+	}
 )
 
 type airdrop struct {
@@ -52,7 +54,20 @@ type distrib struct {
 	unstaked sdk.Dec
 }
 
-func distribution(accounts []Account) (airdrop, error) {
+type distriParams struct {
+	yesVotesMultiplier sdk.Dec
+	noVotesMultiplier  sdk.Dec
+	bonus              sdk.Dec
+	malus              sdk.Dec
+	supplyFactor       sdk.Dec
+}
+
+func distribution(accounts []Account, paramFunc ...func(*distriParams)) (airdrop, error) {
+	params := defaultDistriParams
+	for _, f := range paramFunc {
+		f(&params)
+	}
+
 	airdrop := airdrop{
 		addresses: make(map[string]sdk.Int),
 		icfSlash:  sdk.ZeroDec(),
@@ -92,8 +107,8 @@ func distribution(accounts []Account) (airdrop, error) {
 
 	// Compute nonVotersMultiplier to have non-voters <= 33%
 	var (
-		yesAtoneTotalAmt     = airdrop.atom.votes[govtypes.OptionYes].Mul(yesVotesMultiplier)
-		noAtoneTotalAmt      = airdrop.atom.votes[govtypes.OptionNo].Add(airdrop.atom.votes[govtypes.OptionNoWithVeto]).Mul(noVotesMultiplier)
+		yesAtoneTotalAmt     = airdrop.atom.votes[govtypes.OptionYes].Mul(params.yesVotesMultiplier)
+		noAtoneTotalAmt      = airdrop.atom.votes[govtypes.OptionNo].Add(airdrop.atom.votes[govtypes.OptionNoWithVeto]).Mul(params.noVotesMultiplier)
 		noVotersAtomTotalAmt = airdrop.atom.votes[govtypes.OptionAbstain].Add(airdrop.atom.votes[govtypes.OptionEmpty]).Add(airdrop.atom.unstaked)
 		targetNonVotersPerc  = sdk.NewDecWithPrec(33, 2)
 	)
@@ -123,17 +138,17 @@ func distribution(accounts []Account) (airdrop, error) {
 			// NoWithVeto: 	x noVotesMultiplier x bonus
 			// Abstain:    	x nonVotersMultiplier
 			// Didn't vote: x nonVotersMultiplier x malus
-			yesAirdropAmt        = yesAtomAmt.Mul(yesVotesMultiplier).Mul(supplyFactor)
-			noAirdropAmt         = noAtomAmt.Mul(noVotesMultiplier).Mul(supplyFactor)
-			noWithVetoAirdropAmt = noWithVetoAtomAmt.Mul(noVotesMultiplier).Mul(bonus).Mul(supplyFactor)
-			abstainAirdropAmt    = abstainAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(supplyFactor)
-			noVoteAirdropAmt     = noVoteAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(malus).Mul(supplyFactor)
+			yesAirdropAmt        = yesAtomAmt.Mul(params.yesVotesMultiplier).Mul(params.supplyFactor)
+			noAirdropAmt         = noAtomAmt.Mul(params.noVotesMultiplier).Mul(params.supplyFactor)
+			noWithVetoAirdropAmt = noWithVetoAtomAmt.Mul(params.noVotesMultiplier).Mul(params.bonus).Mul(params.supplyFactor)
+			abstainAirdropAmt    = abstainAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(params.supplyFactor)
+			noVoteAirdropAmt     = noVoteAtomAmt.Mul(airdrop.nonVotersMultiplier).Mul(params.malus).Mul(params.supplyFactor)
 
 			// Liquid amount gets the same multiplier as those who didn't vote.
-			liquidMultiplier = airdrop.nonVotersMultiplier.Mul(malus)
+			liquidMultiplier = airdrop.nonVotersMultiplier.Mul(params.malus)
 
 			// total airdrop for this account
-			liquidAirdropAmt = acc.LiquidAmount.Mul(liquidMultiplier).Mul(supplyFactor)
+			liquidAirdropAmt = acc.LiquidAmount.Mul(liquidMultiplier).Mul(params.supplyFactor)
 			stakedAirdropAmt = yesAirdropAmt.Add(noAirdropAmt).Add(noWithVetoAirdropAmt).
 						Add(abstainAirdropAmt).Add(noVoteAirdropAmt)
 			airdropAmt = liquidAirdropAmt.Add(stakedAirdropAmt)

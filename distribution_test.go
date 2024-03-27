@@ -28,6 +28,9 @@ func TestDistribution(t *testing.T) {
 			Option: govtypes.OptionNoWithVeto,
 			Weight: sdk.NewDec(1),
 		}}
+		noVotesMultiplier = defaultDistriParams.noVotesMultiplier
+		bonus             = defaultDistriParams.bonus
+		malus             = defaultDistriParams.malus
 	)
 
 	tests := []struct {
