@@ -376,6 +376,10 @@ func renderPieChart(f *os.File, title string, d distrib) error {
 		ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
 		Value:     d.unstaked.Quo(d.supply).Mul(oneHundred).MustFloat64(),
 	}
-	pie.AddSeries("pie", data)
+	pie.AddSeries("pie", data).
+		SetSeriesOptions(charts.WithLabelOpts(opts.Label{
+			Show:      true,
+			Formatter: opts.FuncOpts("function(params){ return params.name+': '+params.value.toFixed(2)+'%'}"),
+		}))
 	return pie.Render(f)
 }
