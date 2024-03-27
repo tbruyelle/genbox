@@ -64,6 +64,14 @@ type distriParams struct {
 	supplyFactor       sdk.Dec
 }
 
+func (d distrib) votePercentages() map[govtypes.VoteOption]sdk.Dec {
+	percs := make(map[govtypes.VoteOption]sdk.Dec)
+	for k, v := range d.votes {
+		percs[k] = v.Quo(d.supply)
+	}
+	return percs
+}
+
 func distribution(accounts []Account, paramFunc ...func(*distriParams)) (airdrop, error) {
 	params := defaultDistriParams
 	for _, f := range paramFunc {
@@ -202,65 +210,52 @@ func (m voteMap) add(v govtypes.VoteOption, d sdk.Dec) {
 	m[v] = m[v].Add(d)
 }
 
-func (m voteMap) total() sdk.Dec {
-	d := sdk.ZeroDec()
-	for _, v := range m {
-		d = d.Add(v)
-	}
-	return d
-}
-
-func (m voteMap) toPercentages() map[govtypes.VoteOption]sdk.Dec {
-	total := m.total()
-	percs := make(map[govtypes.VoteOption]sdk.Dec)
-	for k, v := range m {
-		percs[k] = v.Quo(total)
-	}
-	return percs
-}
-
 func printAirdropStats(airdrop airdrop, chartMode bool) error {
 	if chartMode {
 		pie := charts.NewPie()
 		pie.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{Title: "$ATONE Distribution"}),
 		)
-		data := make([]opts.PieData, 6)
+		var (
+			data       = make([]opts.PieData, 6)
+			votePercs  = airdrop.atone.votePercentages()
+			oneHundred = sdk.NewDec(100)
+		)
 		data[0] = opts.PieData{
 			Name:      "Yes",
 			ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
-			Value:     airdrop.atone.votes[govtypes.OptionYes],
+			Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
 		}
 		data[1] = opts.PieData{
 			Name:      "No",
 			ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
-			Value:     airdrop.atone.votes[govtypes.OptionNo],
+			Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
 		}
 		data[2] = opts.PieData{
 			Name:      "NWV",
 			ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
-			Value:     airdrop.atone.votes[govtypes.OptionNoWithVeto],
+			Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
 		}
 		data[3] = opts.PieData{
 			Name:      "Abstain",
 			ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
-			Value:     airdrop.atone.votes[govtypes.OptionAbstain],
+			Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
 		}
 		data[4] = opts.PieData{
 			Name:      "DNV",
 			ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
-			Value:     airdrop.atone.votes[govtypes.OptionEmpty],
+			Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
 		}
 		data[5] = opts.PieData{
 			Name:      "Unstaked",
 			ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
-			Value:     airdrop.atone.unstaked,
+			Value:     airdrop.atone.unstaked.Quo(airdrop.atone.supply).Mul(oneHundred).RoundInt64(),
 		}
 		pie.AddSeries("pie", data).
 			SetSeriesOptions(charts.WithLabelOpts(
 				opts.Label{
 					Show:      true,
-					Formatter: "{b}: {c}",
+					Formatter: "{b}: {c}%",
 				}),
 			)
 		// Where the magic happens
@@ -283,14 +278,15 @@ func printAirdropStats(airdrop airdrop, chartMode bool) error {
 			humand(d.votes[govtypes.OptionAbstain]),
 			humand(d.unstaked),
 		})
+		votePercs := d.votePercentages()
 		table.Append([]string{
 			"Percentage over total",
 			"",
-			humanPercent(d.votes[govtypes.OptionEmpty].Quo(d.supply)),
-			humanPercent(d.votes[govtypes.OptionYes].Quo(d.supply)),
-			humanPercent(d.votes[govtypes.OptionNo].Quo(d.supply)),
-			humanPercent(d.votes[govtypes.OptionNoWithVeto].Quo(d.supply)),
-			humanPercent(d.votes[govtypes.OptionAbstain].Quo(d.supply)),
+			humanPercent(votePercs[govtypes.OptionEmpty]),
+			humanPercent(votePercs[govtypes.OptionYes]),
+			humanPercent(votePercs[govtypes.OptionNo]),
+			humanPercent(votePercs[govtypes.OptionNoWithVeto]),
+			humanPercent(votePercs[govtypes.OptionAbstain]),
 			humanPercent(d.unstaked.Quo(d.supply)),
 		})
 		table.Render()
