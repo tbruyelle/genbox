@@ -61,7 +61,7 @@ type distriParams struct {
 }
 
 func (d distriParams) String() string {
-	return fmt.Sprintf("Yes: x%.1f / No: x%.1f",
+	return fmt.Sprintf("Yes x%.1f / No x%.1f",
 		d.yesVotesMultiplier.MustFloat64(), d.noVotesMultiplier.MustFloat64())
 }
 
@@ -119,7 +119,6 @@ func distribution(accounts []Account, params distriParams) (airdrop, error) {
 		// increment $ATOM supply
 		airdrop.atom.supply = airdrop.atom.supply.Add(acc.StakedAmount.Add(acc.LiquidAmount))
 		airdrop.atom.unstaked = airdrop.atom.unstaked.Add(acc.LiquidAmount)
-
 	}
 
 	// Compute nonVotersMultiplier to have non-voters <= 33%
@@ -224,9 +223,10 @@ func printAirdropsStats(chartMode bool, airdrops []airdrop) error {
 			return err
 		}
 		defer f.Close()
-		renderChart(f, "$ATOM distribution", airdrops[0].atom)
+		renderBarChart(f, airdrops)
+		renderPieChart(f, "$ATOM distribution", airdrops[0].atom)
 		for _, airdrop := range airdrops {
-			renderChart(f, fmt.Sprintf("$ATONE distribution %s", airdrop.params), airdrop.atone)
+			renderPieChart(f, fmt.Sprintf("$ATONE distribution %s", airdrop.params), airdrop.atone)
 		}
 		fmt.Printf("Charts rendered in %s\n", f.Name())
 		browser.OpenFile(f.Name())
@@ -276,7 +276,54 @@ func printAirdropsStats(chartMode bool, airdrops []airdrop) error {
 	return nil
 }
 
-func renderChart(f *os.File, title string, d distrib) error {
+func renderBarChart(f *os.File, airdrops []airdrop) error {
+	bar := charts.NewBar()
+	bar.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{Title: "Votes distribution"}),
+		charts.WithLegendOpts(opts.Legend{Show: true, Right: "right", Orient: "vertical"}),
+	)
+
+	bar.SetXAxis([]string{"Yes", "No", "NWV", "Abstain", "DNV", "Unstaked"})
+	generateData := func(d distrib) []opts.BarData {
+		var (
+			votePercs  = d.votePercentages()
+			data       = make([]opts.BarData, 6)
+			oneHundred = sdk.NewDec(100)
+		)
+		data[0] = opts.BarData{
+			Name:  "Yes",
+			Value: votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
+		}
+		data[1] = opts.BarData{
+			Name:  "No",
+			Value: votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
+		}
+		data[2] = opts.BarData{
+			Name:  "NWV",
+			Value: votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
+		}
+		data[3] = opts.BarData{
+			Name:  "Abstain",
+			Value: votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
+		}
+		data[4] = opts.BarData{
+			Name:  "DNV",
+			Value: votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
+		}
+		data[5] = opts.BarData{
+			Name:  "Unstaked",
+			Value: d.unstaked.Quo(d.supply).Mul(oneHundred).RoundInt64(),
+		}
+		return data
+	}
+	bar.AddSeries("$ATOM", generateData(airdrops[0].atom))
+	for _, airdrop := range airdrops {
+		bar.AddSeries(fmt.Sprintf("$ATONE %s", airdrop.params), generateData(airdrop.atone))
+	}
+	return bar.Render(f)
+}
+
+func renderPieChart(f *os.File, title string, d distrib) error {
 	pie := charts.NewPie()
 	pie.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{
@@ -328,8 +375,5 @@ func renderChart(f *os.File, title string, d distrib) error {
 				Formatter: "{b}: {c}%",
 			}),
 		)
-	if err := pie.Render(f); err != nil {
-		return err
-	}
-	return nil
+	return pie.Render(f)
 }
