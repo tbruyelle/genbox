@@ -8,6 +8,7 @@ import (
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/olekukonko/tablewriter"
+	"github.com/pkg/browser"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -218,63 +219,17 @@ func (m voteMap) add(v govtypes.VoteOption, d sdk.Dec) {
 
 func printAirdropsStats(chartMode bool, airdrops []airdrop) error {
 	if chartMode {
-		f, _ := os.Create("bar.html")
-		for _, airdrop := range airdrops {
-			pie := charts.NewPie()
-			pie.SetGlobalOptions(
-				charts.WithTitleOpts(opts.Title{
-					Title: fmt.Sprintf("$ATONE Distribution %s", airdrop.params),
-				}),
-				charts.WithLegendOpts(opts.Legend{
-					Show: false,
-				}),
-			)
-			var (
-				data       = make([]opts.PieData, 6)
-				votePercs  = airdrop.atone.votePercentages()
-				oneHundred = sdk.NewDec(100)
-			)
-			data[0] = opts.PieData{
-				Name:      "Yes",
-				ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
-				Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
-			}
-			data[1] = opts.PieData{
-				Name:      "No",
-				ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
-				Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
-			}
-			data[2] = opts.PieData{
-				Name:      "NWV",
-				ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
-				Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
-			}
-			data[3] = opts.PieData{
-				Name:      "Abstain",
-				ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
-				Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
-			}
-			data[4] = opts.PieData{
-				Name:      "DNV",
-				ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
-				Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
-			}
-			data[5] = opts.PieData{
-				Name:      "Unstaked",
-				ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
-				Value:     airdrop.atone.unstaked.Quo(airdrop.atone.supply).Mul(oneHundred).RoundInt64(),
-			}
-			pie.AddSeries("pie", data).
-				SetSeriesOptions(charts.WithLabelOpts(
-					opts.Label{
-						Show:      true,
-						Formatter: "{b}: {c}%",
-					}),
-				)
-			if err := pie.Render(f); err != nil {
-				return err
-			}
+		f, err := os.CreateTemp("", "chart*.html")
+		if err != nil {
+			return err
 		}
+		defer f.Close()
+		renderChart(f, "$ATOM distribution", airdrops[0].atom)
+		for _, airdrop := range airdrops {
+			renderChart(f, fmt.Sprintf("$ATONE distribution %s", airdrop.params), airdrop.atone)
+		}
+		fmt.Printf("Charts rendered in %s\n", f.Name())
+		browser.OpenFile(f.Name())
 		return nil
 	}
 
@@ -317,6 +272,64 @@ func printAirdropsStats(chartMode bool, airdrops []airdrop) error {
 			humand(airdrop.icfSlash),
 		)
 		printDistrib(airdrop.atone)
+	}
+	return nil
+}
+
+func renderChart(f *os.File, title string, d distrib) error {
+	pie := charts.NewPie()
+	pie.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title: title,
+		}),
+		charts.WithLegendOpts(opts.Legend{
+			Show: false,
+		}),
+	)
+	var (
+		data       = make([]opts.PieData, 6)
+		votePercs  = d.votePercentages()
+		oneHundred = sdk.NewDec(100)
+	)
+	data[0] = opts.PieData{
+		Name:      "Yes",
+		ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
+		Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
+	}
+	data[1] = opts.PieData{
+		Name:      "No",
+		ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
+		Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
+	}
+	data[2] = opts.PieData{
+		Name:      "NWV",
+		ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
+		Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
+	}
+	data[3] = opts.PieData{
+		Name:      "Abstain",
+		ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
+		Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
+	}
+	data[4] = opts.PieData{
+		Name:      "DNV",
+		ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
+		Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
+	}
+	data[5] = opts.PieData{
+		Name:      "Unstaked",
+		ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
+		Value:     d.unstaked.Quo(d.supply).Mul(oneHundred).RoundInt64(),
+	}
+	pie.AddSeries("pie", data).
+		SetSeriesOptions(charts.WithLabelOpts(
+			opts.Label{
+				Show:      true,
+				Formatter: "{b}: {c}%",
+			}),
+		)
+	if err := pie.Render(f); err != nil {
+		return err
 	}
 	return nil
 }

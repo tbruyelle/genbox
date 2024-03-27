@@ -10,6 +10,7 @@ require (
 	github.com/gogo/protobuf v1.3.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/ff/v3 v3.4.0
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.27
 )
