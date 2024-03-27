@@ -6,6 +6,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.45.16
 	github.com/cosmos/ibc-go/v4 v4.5.1
 	github.com/dustin/go-humanize v1.0.1
+	github.com/go-echarts/go-echarts/v2 v2.3.3
 	github.com/gogo/protobuf v1.3.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/ff/v3 v3.4.0

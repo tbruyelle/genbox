@@ -5,6 +5,8 @@ import (
 	"os"
 	"slices"
 
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/olekukonko/tablewriter"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -217,7 +219,55 @@ func (m voteMap) toPercentages() map[govtypes.VoteOption]sdk.Dec {
 	return percs
 }
 
-func printAirdropStats(airdrop airdrop) {
+func printAirdropStats(airdrop airdrop, chartMode bool) error {
+	if chartMode {
+		pie := charts.NewPie()
+		pie.SetGlobalOptions(
+			charts.WithTitleOpts(opts.Title{Title: "$ATONE Distribution"}),
+		)
+		data := make([]opts.PieData, 6)
+		data[0] = opts.PieData{
+			Name:      "Yes",
+			ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
+			Value:     airdrop.atone.votes[govtypes.OptionYes],
+		}
+		data[1] = opts.PieData{
+			Name:      "No",
+			ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
+			Value:     airdrop.atone.votes[govtypes.OptionNo],
+		}
+		data[2] = opts.PieData{
+			Name:      "NWV",
+			ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
+			Value:     airdrop.atone.votes[govtypes.OptionNoWithVeto],
+		}
+		data[3] = opts.PieData{
+			Name:      "Abstain",
+			ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
+			Value:     airdrop.atone.votes[govtypes.OptionAbstain],
+		}
+		data[4] = opts.PieData{
+			Name:      "DNV",
+			ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
+			Value:     airdrop.atone.votes[govtypes.OptionEmpty],
+		}
+		data[5] = opts.PieData{
+			Name:      "Unstaked",
+			ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
+			Value:     airdrop.atone.unstaked,
+		}
+		pie.AddSeries("pie", data).
+			SetSeriesOptions(charts.WithLabelOpts(
+				opts.Label{
+					Show:      true,
+					Formatter: "{b}: {c}",
+				}),
+			)
+		// Where the magic happens
+		f, _ := os.Create("bar.html")
+		return pie.Render(f)
+	}
+
 	printDistrib := func(d distrib) {
 		table := tablewriter.NewWriter(os.Stdout)
 		table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
@@ -254,4 +304,5 @@ func printAirdropStats(airdrop airdrop) {
 		humand(airdrop.icfSlash),
 	)
 	printDistrib(airdrop.atone)
+	return nil
 }
