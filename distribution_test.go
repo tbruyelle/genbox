@@ -28,9 +28,9 @@ func TestDistribution(t *testing.T) {
 			Option: govtypes.OptionNoWithVeto,
 			Weight: sdk.NewDec(1),
 		}}
-		noVotesMultiplier = defaultDistriParams.noVotesMultiplier
-		bonus             = defaultDistriParams.bonus
-		malus             = defaultDistriParams.malus
+		noVotesMultiplier = defaultDistriParams().noVotesMultiplier
+		bonus             = defaultDistriParams().bonus
+		malus             = defaultDistriParams().malus
 	)
 
 	tests := []struct {
@@ -358,7 +358,7 @@ func TestDistribution(t *testing.T) {
 			require := require.New(t)
 			assert := assert.New(t)
 
-			airdrop, err := distribution(tt.accounts)
+			airdrop, err := distribution(tt.accounts, defaultDistriParams())
 
 			require.NoError(err)
 			expectedRes := tt.expectedAddresses(airdrop.nonVotersMultiplier)

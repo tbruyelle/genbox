@@ -24,16 +24,11 @@ var (
 		"cosmos1sufkm72dw7ua9crpfhhp0dqpyuggtlhdse98e7",
 		"cosmos1z6czaavlk6kjd48rpf58kqqw9ssad2uaxnazgl",
 	}
-	defaultDistriParams = distriParams{
-		yesVotesMultiplier: sdk.OneDec(),               // Y get x1
-		noVotesMultiplier:  sdk.NewDec(4),              // N & NWV get 1+x3
-		bonus:              sdk.NewDecWithPrec(103, 2), // 3% bonus
-		malus:              sdk.NewDecWithPrec(97, 2),  // -3% malus
-		supplyFactor:       sdk.NewDecWithPrec(1, 1),   // Decrease final supply by a factor of 10
-	}
 )
 
 type airdrop struct {
+	// params hold the distribution parameters that resulted in this airdrop
+	params distriParams
 	// addresses contains the airdrop amount per address.
 	addresses map[string]sdk.Int
 	// nonVotersMultiplier ensures that non-voters don't hold more than 1/3 of
@@ -64,6 +59,21 @@ type distriParams struct {
 	supplyFactor       sdk.Dec
 }
 
+func (d distriParams) String() string {
+	return fmt.Sprintf("Yes: x%.1f / No: x%.1f",
+		d.yesVotesMultiplier.MustFloat64(), d.noVotesMultiplier.MustFloat64())
+}
+
+func defaultDistriParams() distriParams {
+	return distriParams{
+		yesVotesMultiplier: sdk.OneDec(),               // Y get x1
+		noVotesMultiplier:  sdk.NewDec(4),              // N & NWV get 1+x3
+		bonus:              sdk.NewDecWithPrec(103, 2), // 3% bonus
+		malus:              sdk.NewDecWithPrec(97, 2),  // -3% malus
+		supplyFactor:       sdk.NewDecWithPrec(1, 1),   // Decrease final supply by a factor of 10
+	}
+}
+
 func (d distrib) votePercentages() map[govtypes.VoteOption]sdk.Dec {
 	percs := make(map[govtypes.VoteOption]sdk.Dec)
 	for k, v := range d.votes {
@@ -72,13 +82,9 @@ func (d distrib) votePercentages() map[govtypes.VoteOption]sdk.Dec {
 	return percs
 }
 
-func distribution(accounts []Account, paramFunc ...func(*distriParams)) (airdrop, error) {
-	params := defaultDistriParams
-	for _, f := range paramFunc {
-		f(&params)
-	}
-
+func distribution(accounts []Account, params distriParams) (airdrop, error) {
 	airdrop := airdrop{
+		params:    params,
 		addresses: make(map[string]sdk.Int),
 		icfSlash:  sdk.ZeroDec(),
 		atom: distrib{
@@ -210,57 +216,66 @@ func (m voteMap) add(v govtypes.VoteOption, d sdk.Dec) {
 	m[v] = m[v].Add(d)
 }
 
-func printAirdropStats(airdrop airdrop, chartMode bool) error {
+func printAirdropsStats(chartMode bool, airdrops []airdrop) error {
 	if chartMode {
-		pie := charts.NewPie()
-		pie.SetGlobalOptions(
-			charts.WithTitleOpts(opts.Title{Title: "$ATONE Distribution"}),
-		)
-		var (
-			data       = make([]opts.PieData, 6)
-			votePercs  = airdrop.atone.votePercentages()
-			oneHundred = sdk.NewDec(100)
-		)
-		data[0] = opts.PieData{
-			Name:      "Yes",
-			ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
-			Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
-		}
-		data[1] = opts.PieData{
-			Name:      "No",
-			ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
-			Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
-		}
-		data[2] = opts.PieData{
-			Name:      "NWV",
-			ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
-			Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
-		}
-		data[3] = opts.PieData{
-			Name:      "Abstain",
-			ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
-			Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
-		}
-		data[4] = opts.PieData{
-			Name:      "DNV",
-			ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
-			Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
-		}
-		data[5] = opts.PieData{
-			Name:      "Unstaked",
-			ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
-			Value:     airdrop.atone.unstaked.Quo(airdrop.atone.supply).Mul(oneHundred).RoundInt64(),
-		}
-		pie.AddSeries("pie", data).
-			SetSeriesOptions(charts.WithLabelOpts(
-				opts.Label{
-					Show:      true,
-					Formatter: "{b}: {c}%",
+		f, _ := os.Create("bar.html")
+		for _, airdrop := range airdrops {
+			pie := charts.NewPie()
+			pie.SetGlobalOptions(
+				charts.WithTitleOpts(opts.Title{
+					Title: fmt.Sprintf("$ATONE Distribution %s", airdrop.params),
+				}),
+				charts.WithLegendOpts(opts.Legend{
+					Show: false,
 				}),
 			)
-		// Where the magic happens
-		f, _ := os.Create("bar.html")
-		return pie.Render(f)
+			var (
+				data       = make([]opts.PieData, 6)
+				votePercs  = airdrop.atone.votePercentages()
+				oneHundred = sdk.NewDec(100)
+			)
+			data[0] = opts.PieData{
+				Name:      "Yes",
+				ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
+				Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).RoundInt64(),
+			}
+			data[1] = opts.PieData{
+				Name:      "No",
+				ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
+				Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).RoundInt64(),
+			}
+			data[2] = opts.PieData{
+				Name:      "NWV",
+				ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
+				Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).RoundInt64(),
+			}
+			data[3] = opts.PieData{
+				Name:      "Abstain",
+				ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
+				Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).RoundInt64(),
+			}
+			data[4] = opts.PieData{
+				Name:      "DNV",
+				ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
+				Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).RoundInt64(),
+			}
+			data[5] = opts.PieData{
+				Name:      "Unstaked",
+				ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
+				Value:     airdrop.atone.unstaked.Quo(airdrop.atone.supply).Mul(oneHundred).RoundInt64(),
+			}
+			pie.AddSeries("pie", data).
+				SetSeriesOptions(charts.WithLabelOpts(
+					opts.Label{
+						Show:      true,
+						Formatter: "{b}: {c}%",
+					}),
+				)
+			if err := pie.Render(f); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	printDistrib := func(d distrib) {
@@ -290,15 +305,18 @@ func printAirdropStats(airdrop airdrop, chartMode bool) error {
 			humanPercent(d.unstaked.Quo(d.supply)),
 		})
 		table.Render()
+		fmt.Println()
 	}
 	fmt.Println("$ATOM distribution")
-	printDistrib(airdrop.atom)
-	fmt.Println()
-	fmt.Printf("$ATONE distribution (ratio: x%.3f, nonVotersMultiplier: %.3f, icfSlash: %s $ATOM)\n",
-		airdrop.atone.supply.Quo(airdrop.atom.supply).MustFloat64(),
-		airdrop.nonVotersMultiplier.MustFloat64(),
-		humand(airdrop.icfSlash),
-	)
-	printDistrib(airdrop.atone)
+	printDistrib(airdrops[0].atom)
+	for _, airdrop := range airdrops {
+		fmt.Printf("$ATONE distribution (params: %s) (ratio: x%.3f, nonVotersMultiplier: %.3f, icfSlash: %s $ATOM)\n",
+			airdrop.params,
+			airdrop.atone.supply.Quo(airdrop.atom.supply).MustFloat64(),
+			airdrop.nonVotersMultiplier.MustFloat64(),
+			humand(airdrop.icfSlash),
+		)
+		printDistrib(airdrop.atone)
+	}
 	return nil
 }

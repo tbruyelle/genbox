@@ -8,8 +8,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func main() {
@@ -155,6 +158,8 @@ func autoStakingCmd() *ffcli.Command {
 func distributionCmd() *ffcli.Command {
 	fs := flag.NewFlagSet("distribution", flag.ContinueOnError)
 	chartMode := fs.Bool("chart", false, "Outputs a chart instead of Markdown tables")
+	yesMultipliers := fs.String("yesMultipliers", "1", "List of possible comma-seperated Yes multipliers")
+	noMultipliers := fs.String("noMultipliers", "4", "List of possible comma-separated No multipliers")
 
 	cmd := &ffcli.Command{
 		Name:       "distribution",
@@ -167,27 +172,47 @@ func distributionCmd() *ffcli.Command {
 				return flag.ErrHelp
 			}
 			fs.Parse(args)
+			// Build distribution parameters from yes and no multipliers
+			var distriParamss []distriParams
+			for _, y := range strings.Split(*yesMultipliers, ",") {
+				for _, n := range strings.Split(*noMultipliers, ",") {
+					distriParams := defaultDistriParams()
+					distriParams.yesVotesMultiplier = sdk.MustNewDecFromStr(y)
+					distriParams.noVotesMultiplier = sdk.MustNewDecFromStr(n)
+					distriParamss = append(distriParamss, distriParams)
+				}
+			}
 			var (
 				datapath     = args[0]
 				accountsFile = filepath.Join(datapath, "accounts.json")
 				airdropFile  = filepath.Join(datapath, "airdrop.json")
+				airdrops     []airdrop
 			)
 			accounts, err := parseAccounts(accountsFile)
 			if err != nil {
 				return err
 			}
-			airdrop, err := distribution(accounts)
-			if err != nil {
+			for _, params := range distriParamss {
+				airdrop, err := distribution(accounts, params)
+				if err != nil {
+					return err
+				}
+				airdrops = append(airdrops, airdrop)
+			}
+			if len(airdrops) == 1 {
+				// Write airdrop.json only if a single distriParamss
+				bz, err := json.MarshalIndent(airdrops[0].addresses, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(airdropFile, bz, 0o666); err != nil {
+					return err
+				}
+			}
+			if err := printAirdropsStats(*chartMode, airdrops); err != nil {
 				return err
 			}
-			bz, err := json.MarshalIndent(airdrop.addresses, "", "  ")
-			if err != nil {
-				return err
-			}
-			if err := os.WriteFile(airdropFile, bz, 0o666); err != nil {
-				return err
-			}
-			return printAirdropStats(airdrop, *chartMode)
+			return nil
 		},
 	}
 	return cmd
