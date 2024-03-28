@@ -25,6 +25,8 @@ var (
 		// The 2 addresses above have been emptied in favour of the following 2
 		"cosmos1sufkm72dw7ua9crpfhhp0dqpyuggtlhdse98e7",
 		"cosmos1z6czaavlk6kjd48rpf58kqqw9ssad2uaxnazgl",
+		// From other investigations
+		"cosmos17u903qxqc6dzn3chvmc9zzp9fl4xja0pwggfj7",
 	}
 )
 
