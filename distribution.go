@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/olekukonko/tablewriter"
 	"github.com/pkg/browser"
@@ -223,11 +224,18 @@ func printAirdropsStats(chartMode bool, airdrops []airdrop) error {
 			return err
 		}
 		defer f.Close()
-		renderBarChart(f, airdrops)
-		renderPieChart(f, "$ATOM distribution", airdrops[0].atom)
+		page := components.NewPage()
+		page.PageTitle = "$ATONE distributions"
+		page.AddCharts(
+			newBarChart(airdrops),
+			newPieChart("$ATOM distribution", airdrops[0].atom),
+		)
 		for _, airdrop := range airdrops {
-			renderPieChart(f, fmt.Sprintf("$ATONE distribution %s", airdrop.params), airdrop.atone)
+			page.AddCharts(
+				newPieChart(fmt.Sprintf("$ATONE distribution %s", airdrop.params), airdrop.atone),
+			)
 		}
+		page.Render(f)
 		fmt.Printf("Charts rendered in %s\n", f.Name())
 		browser.OpenFile(f.Name())
 		return nil
@@ -276,7 +284,7 @@ func printAirdropsStats(chartMode bool, airdrops []airdrop) error {
 	return nil
 }
 
-func renderBarChart(f *os.File, airdrops []airdrop) error {
+func newBarChart(airdrops []airdrop) *charts.Bar {
 	bar := charts.NewBar()
 	bar.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{Title: "Votes distribution"}),
@@ -324,10 +332,10 @@ func renderBarChart(f *os.File, airdrops []airdrop) error {
 	for _, airdrop := range airdrops {
 		bar.AddSeries(fmt.Sprintf("$ATONE %s", airdrop.params), generateData(airdrop.atone))
 	}
-	return bar.Render(f)
+	return bar
 }
 
-func renderPieChart(f *os.File, title string, d distrib) error {
+func newPieChart(title string, d distrib) *charts.Pie {
 	pie := charts.NewPie()
 	pie.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{
@@ -381,5 +389,5 @@ func renderPieChart(f *os.File, title string, d distrib) error {
 			Show:      true,
 			Formatter: opts.FuncOpts("function(params){ return params.name+': '+params.value.toFixed(2)+'%'}"),
 		}))
-	return pie.Render(f)
+	return pie
 }
