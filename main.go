@@ -8,18 +8,23 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"golang.org/x/exp/maps"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func main() {
 	rootCmd := &ffcli.Command{
-		ShortUsage:  "govbox <subcommand> <path>",
-		ShortHelp:   "Set of commands for GovGen proposals.",
-		Subcommands: []*ffcli.Command{tallyCmd(), accountsCmd(), genesisCmd(), autoStakingCmd(), distributionCmd()},
+		ShortUsage: "govbox <subcommand> <path>",
+		ShortHelp:  "Set of commands for GovGen proposals.",
+		Subcommands: []*ffcli.Command{
+			tallyCmd(), accountsCmd(), genesisCmd(),
+			autoStakingCmd(), distributionCmd(), topTenCmd(),
+		},
 		Exec: func(ctx context.Context, args []string) error {
 			return flag.ErrHelp
 		},
@@ -216,4 +221,37 @@ func distributionCmd() *ffcli.Command {
 		},
 	}
 	return cmd
+}
+
+func topTenCmd() *ffcli.Command {
+	return &ffcli.Command{
+		Name:       "topten",
+		ShortUsage: "govbox topten <path>",
+		ShortHelp:  "Prints the top richest addresses of <path>/airdrop.json",
+		Exec: func(ctx context.Context, args []string) error {
+			f, err := os.Open("data/prop848/airdrop.json")
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			var addresses map[string]sdk.Int
+			err = json.NewDecoder(f).Decode(&addresses)
+			if err != nil {
+				return err
+			}
+			adrs := maps.Keys(addresses)
+			sort.Slice(adrs, func(i, j int) bool {
+				return addresses[adrs[i]].GT(addresses[adrs[j]])
+			})
+			for i := 0; i < 10; i++ {
+				fmt.Println(adrs[i], human(addresses[adrs[i]]))
+			}
+			t := sdk.NewInt(0)
+			for _, v := range addresses {
+				t = t.Add(v)
+			}
+			fmt.Println("TOTAL", human(t))
+			return nil
+		},
+	}
 }
