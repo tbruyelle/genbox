@@ -366,7 +366,7 @@ func newPieChart(title string, d distrib) *charts.Pie {
 	}
 	data[2] = opts.PieData{
 		Name:      "NWV",
-		ItemStyle: &opts.ItemStyle{Color: "#87b9a2"},
+		ItemStyle: &opts.ItemStyle{Color: "#5f977b"},
 		Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).MustFloat64(),
 	}
 	data[3] = opts.PieData{
