@@ -136,7 +136,7 @@ The following table is also provided for a quick recap of the employed
 
 |                     |  DNV      | YES | ABSTAIN | NO |    NWV    |
 |---------------------|-----------|-----|---------|----|-----------|
-| Bonded multiplier   | C x malus |  1  |    C    | 4  | 4 x bonus |
+| Bonded multiplier   | C x malus |  1  |    C    | 9  | 9 x bonus |
 | Unbonded multiplier | C x malus |  -  |    -    | -  |     -     |
 
 A specific effort is made to ensure that *non-voting* categories 
@@ -153,12 +153,12 @@ when computing balances.
 > indiscriminately alongside any other category-specific multiplier
 
 According to the current calculations -- which **may** change -- the potential
-$ATONE distribution will be of around ~48.5 Millions.
+$ATONE distribution will be of around ~97 Millions.
 
 |                       |   TOTAL    | DID NOT VOTE |    YES    |     NO     | NOWITHVETO |  ABSTAIN  | NOT STAKED |
 |-----------------------|------------|--------------|-----------|------------|------------|-----------|------------|
-| Distributed $ATONE    | 48,503,137 |    5,247,961 | 6,374,676 | 21,340,439 |  4,791,114 | 2,849,864 |  7,899,084 |
-| Percentage over total |            | 11%          | 13%       | 44%        | 10%        | 6%        | 16%        |
+| Distributed $ATONE    | 96,997,800 |   10,445,719 | 6,374,676 | 48,015,988 | 10,780,005 | 5,672,466 | 15,708,946 |
+| Percentage over total |            | 11%          | 7%        | 50%        | 11%        | 6%        | 16%        |
 
 As a comparison, here is the $ATOM distribution for [prop848]:
 
@@ -203,8 +203,8 @@ be applied *additionally* to the *C* multiplier:
 \left\{
 \begin{aligned}
 & Y_{Y} = X_{Y} \\
-& Y_{N} = 4 \cdot X_{N} \\
-& Y_{NWV} = 4 \cdot X_{NWV} \\
+& Y_{N} = 9 \cdot X_{N} \\
+& Y_{NWV} = 9 \cdot X_{NWV} \\
 & Y_{A} + Y_{DNV} + Y_{U} = C \cdot X_{A} + C \cdot X_{DNV} + C \cdot X_{U} = C \cdot (X_{A} + X_{DNV} + X_{U})
 \end{aligned}
 \right.
@@ -212,15 +212,15 @@ be applied *additionally* to the *C* multiplier:
 
 Which if plugged in the above equation gives:
 ```math
-\frac{C \cdot (X_{A} + X_{DNV} + X_{U})}{C \cdot (X_{A} + X_{DNV} + X_{U}) + X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}} \leq t
+\frac{C \cdot (X_{A} + X_{DNV} + X_{U})}{C \cdot (X_{A} + X_{DNV} + X_{U}) + X_{Y} + 9 \cdot X_{N} + 9 \cdot X_{NWV}} \leq t
 ```
 
 Finally, let's isolate `C`:
 ```math
 \begin{align}
-C \cdot (X_{A} + X_{DNV} + X_{U}) &\leq t \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) + t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) \\[10pt]
-(1 - t) \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) &\leq  t \cdot (X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV}) \\[10pt]
-C  &\leq  \frac{t}{1-t} \cdot \frac{(X_{Y} + 4 \cdot X_{N} + 4 \cdot X_{NWV})}{(X_{A} + X_{DNV} + X_{U})}
+C \cdot (X_{A} + X_{DNV} + X_{U}) &\leq t \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) + t \cdot (X_{Y} + 9 \cdot X_{N} + 9 \cdot X_{NWV}) \\[10pt]
+(1 - t) \cdot C \cdot (X_{A} + X_{DNV} + X_{U}) &\leq  t \cdot (X_{Y} + 9 \cdot X_{N} + 9 \cdot X_{NWV}) \\[10pt]
+C  &\leq  \frac{t}{1-t} \cdot \frac{(X_{Y} + 9 \cdot X_{N} + 9 \cdot X_{NWV})}{(X_{A} + X_{DNV} + X_{U})}
 \end{align}
 ```
 Which gives the final formula described in the [proposal 001][001].

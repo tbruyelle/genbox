@@ -164,7 +164,7 @@ func distributionCmd() *ffcli.Command {
 	fs := flag.NewFlagSet("distribution", flag.ContinueOnError)
 	chartMode := fs.Bool("chart", false, "Outputs a chart instead of Markdown tables")
 	yesMultipliers := fs.String("yesMultipliers", "1", "List of possible comma-seperated Yes multipliers")
-	noMultipliers := fs.String("noMultipliers", "4", "List of possible comma-separated No multipliers")
+	noMultipliers := fs.String("noMultipliers", "9", "List of possible comma-separated No multipliers")
 
 	cmd := &ffcli.Command{
 		Name:       "distribution",

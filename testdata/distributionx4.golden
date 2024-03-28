@@ -4,8 +4,8 @@ $ATOM distribution
 | Distributed           | 342,834,268 |   66,855,758 | 70,428,501 | 55,519,213 | 11,664,818 | 35,679,919 | 102,686,059 |
 | Percentage over total |             | 20%          | 21%        | 16%        | 3%         | 10%        | 30%         |
 
-$ATONE distribution (params: Yes x1.0 / No x9.0) (ratio: x0.283, nonVotersMultiplier: 1.620, icfSlash: 12,677,878 $ATOM)
+$ATONE distribution (ratio: x0.141, nonVotersMultiplier: 0.814, icfSlash: 12,590,970 $ATOM)
 |                       |   TOTAL    | DID NOT VOTE |    YES    |     NO     | NOWITHVETO |  ABSTAIN  | NOT STAKED |
 |-----------------------|------------|--------------|-----------|------------|------------|-----------|------------|
-| Distributed           | 96,997,800 |   10,445,719 | 6,374,676 | 48,015,988 | 10,780,005 | 5,672,466 | 15,708,946 |
-| Percentage over total |            | 11%          | 7%        | 50%        | 11%        | 6%        | 16%        |
+| Distributed           | 48,503,137 |    5,247,961 | 6,374,676 | 21,340,439 |  4,791,114 | 2,849,864 |  7,899,084 |
+| Percentage over total |            | 11%          | 13%       | 44%        | 10%        | 6%        | 16%        |
