@@ -351,43 +351,72 @@ func newPieChart(title string, d distrib) *charts.Pie {
 	)
 	var (
 		data       = make([]opts.PieData, 6)
+		dataSum    = make([]opts.PieData, 3)
 		votePercs  = d.votePercentages()
 		oneHundred = sdk.NewDec(100)
 	)
 	data[0] = opts.PieData{
 		Name:      "Yes",
-		ItemStyle: &opts.ItemStyle{Color: "#ff6f69"},
+		ItemStyle: &opts.ItemStyle{Color: "#ff8b87"},
 		Value:     votePercs[govtypes.OptionYes].Mul(oneHundred).MustFloat64(),
+	}
+	dataSum[0] = opts.PieData{
+		Name:      "Yes",
+		ItemStyle: &opts.ItemStyle{Color: "#ff8b87"},
+		Value:     data[0].Value,
 	}
 	data[1] = opts.PieData{
 		Name:      "No",
-		ItemStyle: &opts.ItemStyle{Color: "#96ceb4"},
+		ItemStyle: &opts.ItemStyle{Color: "#9FDFBF"},
 		Value:     votePercs[govtypes.OptionNo].Mul(oneHundred).MustFloat64(),
 	}
 	data[2] = opts.PieData{
 		Name:      "NWV",
-		ItemStyle: &opts.ItemStyle{Color: "#5f977b"},
+		ItemStyle: &opts.ItemStyle{Color: "#88d8b0"},
 		Value:     votePercs[govtypes.OptionNoWithVeto].Mul(oneHundred).MustFloat64(),
+	}
+	dataSum[1] = opts.PieData{
+		Name:      "No+NWV",
+		ItemStyle: &opts.ItemStyle{Color: "#6cac8c"},
+		Value:     data[1].Value.(float64) + data[2].Value.(float64),
 	}
 	data[3] = opts.PieData{
 		Name:      "Abstain",
-		ItemStyle: &opts.ItemStyle{Color: "#ffcc5c"},
+		ItemStyle: &opts.ItemStyle{Color: "#eac086"},
 		Value:     votePercs[govtypes.OptionAbstain].Mul(oneHundred).MustFloat64(),
 	}
 	data[4] = opts.PieData{
 		Name:      "DNV",
-		ItemStyle: &opts.ItemStyle{Color: "#ffeead"},
+		ItemStyle: &opts.ItemStyle{Color: "#ffcd94"},
 		Value:     votePercs[govtypes.OptionEmpty].Mul(oneHundred).MustFloat64(),
 	}
 	data[5] = opts.PieData{
 		Name:      "Unstaked",
-		ItemStyle: &opts.ItemStyle{Color: "#fff8de"},
+		ItemStyle: &opts.ItemStyle{Color: "#ffe0bd"},
 		Value:     d.unstaked.Quo(d.supply).Mul(oneHundred).MustFloat64(),
 	}
-	pie.AddSeries("pie", data).
-		SetSeriesOptions(charts.WithLabelOpts(opts.Label{
+	dataSum[2] = opts.PieData{
+		Name:      "Non voters",
+		ItemStyle: &opts.ItemStyle{Color: "#ffad60"},
+		Value:     data[3].Value.(float64) + data[4].Value.(float64) + data[5].Value.(float64),
+	}
+	pie.AddSeries("pie", data,
+		charts.WithLabelOpts(opts.Label{
 			Show:      true,
 			Formatter: opts.FuncOpts("function(params){ return params.name+': '+params.value.toFixed(2)+'%'}"),
-		}))
+		}),
+		charts.WithPieChartOpts(opts.PieChart{
+			Radius: []string{"45%", "80%"},
+		}),
+	)
+	pie.AddSeries("pie2", dataSum,
+		charts.WithLabelOpts(opts.Label{
+			Show:      false,
+			Formatter: opts.FuncOpts("function(params){ return params.name+': '+params.value.toFixed(2)+'%'}"),
+		}),
+		charts.WithPieChartOpts(opts.PieChart{
+			Radius: []string{"0%", "46%"},
+		}),
+	)
 	return pie
 }
